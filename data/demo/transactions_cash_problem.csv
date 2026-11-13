@@ -1,0 +1,31 @@
+transaction_id,transaction_date,description,amount,type,category,payment_method,notes
+TRX-CP-001,2024-01-05,Penjualan kredit Customer A,5000000.00,income,revenue,receivable,Jatuh tempo 30 hari
+TRX-CP-002,2024-01-06,Pembelian bahan baku - cash,2800000.00,expense,cogs,cash,Bayar tunai
+TRX-CP-003,2024-01-08,Bayar gaji karyawan,4500000.00,expense,operational,cash,Gaji bulanan
+TRX-CP-004,2024-01-10,Bayar sewa tempat,3500000.00,expense,operational,cash,Sewa 3 bulan
+TRX-CP-005,2024-01-12,Penjualan kredit Customer B,4200000.00,income,revenue,receivable,Jatuh tempo 45 hari
+TRX-CP-006,2024-01-15,Pembelian inventory - cash,3200000.00,expense,cogs,cash,Stock bulanan
+TRX-CP-007,2024-01-17,Bayar utilitas (listrik + air),850000.00,expense,operational,cash,Tagihan bulanan
+TRX-CP-008,2024-01-20,Penjualan kredit Customer C,3800000.00,income,revenue,receivable,Jatuh tempo 30 hari
+TRX-CP-009,2024-01-22,Pembelian bahan baku - cash,2600000.00,expense,cogs,cash,Supplier cash only
+TRX-CP-010,2024-01-25,Bayar maintenance equipment,1200000.00,expense,operational,cash,Service rutin
+TRX-CP-011,2024-01-28,Penjualan tunai,1500000.00,income,revenue,cash,Rare cash sale
+TRX-CP-012,2024-02-01,Bayar bunga pinjaman,750000.00,expense,finance,transfer,Bunga bank
+TRX-CP-013,2024-02-03,Penjualan kredit Customer D,4600000.00,income,revenue,receivable,Jatuh tempo 60 hari
+TRX-CP-014,2024-02-05,Pembelian bahan baku - cash,3100000.00,expense,cogs,cash,Pembayaran cash
+TRX-CP-015,2024-02-08,Bayar gaji karyawan,4500000.00,expense,operational,cash,Gaji bulanan
+TRX-CP-016,2024-02-10,Bayar asuransi,900000.00,expense,operational,transfer,Premi bulanan
+TRX-CP-017,2024-02-12,Penjualan kredit Customer A (repeat),5200000.00,income,revenue,receivable,Jatuh tempo 30 hari
+TRX-CP-018,2024-02-15,Pembelian inventory - cash,2900000.00,expense,cogs,cash,Stock refresh
+TRX-CP-019,2024-02-18,Bayar transportasi & logistik,680000.00,expense,operational,cash,Biaya kirim
+TRX-CP-020,2024-02-20,Terima pembayaran dari Customer A,5000000.00,income,revenue,transfer,Pelunasan TRX-CP-001
+TRX-CP-021,2024-02-22,Pembelian bahan baku urgent,2400000.00,expense,cogs,cash,Stock menipis
+TRX-CP-022,2024-02-25,Bayar iklan & promosi,1100000.00,expense,marketing,transfer,Marketing campaign
+TRX-CP-023,2024-02-28,Penjualan kredit Customer E,3900000.00,income,revenue,receivable,Jatuh tempo 45 hari
+TRX-CP-024,2024-03-01,Bayar listrik & air,920000.00,expense,operational,transfer,Tagihan naik
+TRX-CP-025,2024-03-03,Pembelian bahan baku - cash,3300000.00,expense,cogs,cash,Harga naik
+TRX-CP-026,2024-03-05,Bayar gaji karyawan,4500000.00,expense,operational,cash,Gaji bulanan
+TRX-CP-027,2024-03-08,Penjualan tunai,1200000.00,income,revenue,cash,Cash sale
+TRX-CP-028,2024-03-10,Bayar pajak usaha,1500000.00,expense,tax,transfer,Pajak quarterly
+TRX-CP-029,2024-03-12,Penjualan kredit Customer F,4100000.00,income,revenue,receivable,Jatuh tempo 30 hari
+TRX-CP-030,2024-03-15,Pembelian emergency stock,2700000.00,expense,cogs,cash,Stock emergency

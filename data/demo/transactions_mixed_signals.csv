@@ -1,0 +1,31 @@
+transaction_id,transaction_date,description,amount,type,category,payment_method,notes
+TRX-MIX-001,2024-01-05,Penjualan produk premium,8500000.00,income,revenue,transfer,High margin product
+TRX-MIX-002,2024-01-06,Pembelian inventory besar,6200000.00,expense,cogs,cash,Bulk purchase discount
+TRX-MIX-003,2024-01-08,Bayar gaji + bonus,5800000.00,expense,operational,cash,Performance bonus
+TRX-MIX-004,2024-01-10,Penjualan reguler,3200000.00,income,revenue,qris,Standard sale
+TRX-MIX-005,2024-01-12,Investasi peralatan baru,4500000.00,expense,capital,transfer,Equipment upgrade
+TRX-MIX-006,2024-01-15,Penjualan produk premium,9200000.00,income,revenue,transfer,Growing demand
+TRX-MIX-007,2024-01-17,Pembelian inventory overstock,7800000.00,expense,cogs,cash,Anticipate demand
+TRX-MIX-008,2024-01-20,Bayar sewa + deposit,4200000.00,expense,operational,transfer,Expand location
+TRX-MIX-009,2024-01-22,Penjualan reguler,3500000.00,income,revenue,cash,Standard sale
+TRX-MIX-010,2024-01-25,Biaya pelatihan karyawan,2100000.00,expense,operational,transfer,Skill development
+TRX-MIX-011,2024-01-28,Penjualan produk premium,10500000.00,income,revenue,transfer,Peak performance
+TRX-MIX-012,2024-02-01,Pembelian inventory massive,8900000.00,expense,cogs,cash,Over-ordering
+TRX-MIX-013,2024-02-03,Bayar marketing campaign,3200000.00,expense,marketing,transfer,Digital marketing
+TRX-MIX-014,2024-02-05,Penjualan reguler,3800000.00,income,revenue,qris,Growing sales
+TRX-MIX-015,2024-02-08,Bayar gaji + overtime,6100000.00,expense,operational,cash,Heavy workload
+TRX-MIX-016,2024-02-10,Investasi software,2800000.00,expense,capital,transfer,Automation tools
+TRX-MIX-017,2024-02-12,Penjualan produk premium,11200000.00,income,revenue,transfer,Record high
+TRX-MIX-018,2024-02-15,Pembelian inventory excess,9500000.00,expense,cogs,cash,Storage issue
+TRX-MIX-019,2024-02-18,Bayar konsultan,2500000.00,expense,operational,transfer,Business advisor
+TRX-MIX-020,2024-02-20,Penjualan reguler,4100000.00,income,revenue,cash,Steady growth
+TRX-MIX-021,2024-02-22,Biaya renovasi tempat,3800000.00,expense,capital,transfer,Interior upgrade
+TRX-MIX-022,2024-02-25,Penjualan produk premium,10800000.00,income,revenue,transfer,Strong demand
+TRX-MIX-023,2024-02-28,Pembelian inventory large,8200000.00,expense,cogs,cash,Inventory buildup
+TRX-MIX-024,2024-03-01,Bayar utilitas + maintenance,1800000.00,expense,operational,transfer,Monthly bills
+TRX-MIX-025,2024-03-03,Penjualan reguler,4300000.00,income,revenue,qris,Consistent sales
+TRX-MIX-026,2024-03-05,Bayar gaji staff,6200000.00,expense,operational,cash,Added headcount
+TRX-MIX-027,2024-03-08,Penjualan produk premium,11800000.00,income,revenue,transfer,Highest yet
+TRX-MIX-028,2024-03-10,Pembelian inventory overload,9800000.00,expense,cogs,cash,Cash tied in inventory
+TRX-MIX-029,2024-03-12,Bayar lisensi & permits,1500000.00,expense,operational,transfer,Legal compliance
+TRX-MIX-030,2024-03-15,Penjualan reguler,4600000.00,income,revenue,cash,End of period
