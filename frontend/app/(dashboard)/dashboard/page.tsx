@@ -1,9 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { DataQualityBadge } from "@/components/shared/DataQualityBadge";
 import { RiskLevelBadge } from "@/components/shared/RiskLevelBadge";
-import { DollarSign, ShoppingCart, TrendingUp, Wallet } from "lucide-react";
+import {
+  DollarSign,
+  TrendingUp,
+  Wallet,
+  AlertCircle,
+  Sparkles,
+  Target,
+  ArrowRight,
+  BarChart3,
+  Brain,
+  Zap,
+  ShieldCheck,
+  Clock,
+} from "lucide-react";
 import Link from "next/link";
 
 // Mock data - akan diganti dengan API call
@@ -40,44 +54,64 @@ const mockData = {
 };
 
 export default function DashboardPage() {
+  const [selectedPeriod, setSelectedPeriod] = useState("MTD");
+
   return (
     <div className="space-y-6">
-      {/* Period & Data Quality */}
-      <div className="flex items-center justify-between">
+      {/* Welcome Header with Period Selector */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <p className="text-sm text-[#7E8379]">
-            Periode: {mockData.period.from} - {mockData.period.to}
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">
+            Financial Overview
+          </h1>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <Clock className="w-4 h-4" />
+            <span>
+              {mockData.period.from} - {mockData.period.to}
+            </span>
+          </div>
         </div>
-        <DataQualityBadge status={mockData.data_quality.status} />
+
+        {/* Period Selector & Data Quality */}
+        <div className="flex items-center gap-3">
+          <div className="inline-flex bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
+            {["MTD", "QTD", "YTD"].map((period) => (
+              <button
+                key={period}
+                onClick={() => setSelectedPeriod(period)}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  selectedPeriod === period
+                    ? "bg-emerald-600 text-white shadow-sm"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                }`}
+              >
+                {period}
+              </button>
+            ))}
+          </div>
+          <DataQualityBadge status={mockData.data_quality.status} />
+        </div>
       </div>
 
-      {/* Warning Banner */}
+      {/* Data Quality Warning */}
       {mockData.data_quality.warnings && mockData.data_quality.warnings.length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4">
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex gap-3">
             <div className="flex-shrink-0">
-              <svg
-                className="w-5 h-5 text-yellow-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                />
-              </svg>
+              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+              </div>
             </div>
-            <div>
-              <h4 className="text-sm font-semibold text-yellow-800">
-                Perhatian: Kualitas Data
+            <div className="flex-1">
+              <h4 className="text-sm font-bold text-amber-900 mb-1">
+                Peringatan Kualitas Data
               </h4>
-              <ul className="mt-1 text-xs text-yellow-700 space-y-0.5">
+              <ul className="text-sm text-amber-800 space-y-1">
                 {mockData.data_quality.warnings.map((warning, idx) => (
-                  <li key={idx}>• {warning}</li>
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="text-amber-500 mt-0.5">•</span>
+                    <span>{warning}</span>
+                  </li>
                 ))}
               </ul>
             </div>
@@ -85,266 +119,298 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* KPI Cards */}
+      {/* KPI Cards Grid - Premium Design */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <KPICard
           title="Pendapatan Bersih"
           value={mockData.metrics.net_revenue}
           currency={mockData.currency}
-          icon={
-            <DollarSign className="w-4 h-4 text-emerald-100" strokeWidth={1.8} />
-          }
-          iconBg="bg-[#273420] text-white"
+          icon={<DollarSign className="w-5 h-5 text-white" strokeWidth={2.5} />}
+          iconBg="bg-gradient-to-br from-emerald-600 to-emerald-700"
           trend={{ value: 12.5, label: "vs bulan lalu" }}
-          sparklineColor="#5E7351"
-          sparklineGradient="oliveGrad"
+          sparklineColor="#10b981"
+          sparklineGradient="emeraldGrad"
         />
 
         <KPICard
           title="Laba Bersih"
           value={mockData.metrics.net_profit}
           currency={mockData.currency}
-          icon={
-            <TrendingUp className="w-4 h-4 text-white" strokeWidth={1.8} />
-          }
-          iconBg="bg-[#EFAAA4] text-white"
+          icon={<TrendingUp className="w-5 h-5 text-white" strokeWidth={2.5} />}
+          iconBg="bg-gradient-to-br from-blue-600 to-blue-700"
           trend={{ value: 8.3, label: "vs bulan lalu" }}
-          sparklineColor="#EFAAA4"
-          sparklineGradient="blushGrad"
+          sparklineColor="#3b82f6"
+          sparklineGradient="blueGrad"
         />
 
         <KPICard
           title="Arus Kas Bersih"
           value={mockData.metrics.net_cash_flow}
           currency={mockData.currency}
-          icon={
-            <Wallet className="w-4 h-4 text-white" strokeWidth={1.8} />
-          }
-          iconBg="bg-[#3B4A34] text-white"
+          icon={<Wallet className="w-5 h-5 text-white" strokeWidth={2.5} />}
+          iconBg="bg-gradient-to-br from-violet-600 to-violet-700"
           trend={{ value: 9.6, label: "vs bulan lalu" }}
-          sparklineColor="#8FA382"
-          sparklineGradient="sageGrad"
+          sparklineColor="#8b5cf6"
+          sparklineGradient="violetGrad"
         />
       </div>
 
-      {/* Featured Banner & Quick Actions */}
+      {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Featured Banner */}
-        <section className="lg:col-span-5 bg-[#273420] text-white rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between shadow-[0_8px_30px_-4px_rgba(44,56,37,0.05)] min-h-[300px]">
-          <div className="z-10 max-w-[210px]">
-            <p className="font-serif italic text-[#8FA382] text-base tracking-wide">
-              Fokus Bulan Ini
-            </p>
-            <h3 className="font-serif text-3xl font-semibold leading-tight text-[#FAF7F2] mt-1.5">
-              Tingkatkan<br />Arus Kas<br />Usaha Anda
-            </h3>
-            <p className="text-xs text-[#C5CCC0] leading-relaxed mt-4">
-              Optimalkan kesehatan keuangan dengan insight dan rekomendasi AI.
-            </p>
-          </div>
-          <div className="z-10 mt-6">
+        {/* AI Intelligence Panel - Featured */}
+        <section className="lg:col-span-8 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white rounded-3xl p-6 relative overflow-hidden shadow-2xl hover-lift">
+          {/* Animated Background Elements */}
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/10 via-transparent to-blue-600/10" />
+          <div className="absolute -right-20 -top-20 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl" />
+          <div className="absolute -left-20 -bottom-20 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl" />
+
+          <div className="relative z-10">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 mb-3">
+                  <Brain className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-xs font-bold text-emerald-300 uppercase tracking-wide">
+                    ProfitAI Intelligence
+                  </span>
+                </div>
+                <h2 className="text-2xl font-bold text-white mb-2">
+                  Analisis Keuangan Cerdas
+                </h2>
+                <p className="text-sm text-gray-300">
+                  Insight berbasis AI untuk optimasi performa bisnis Anda
+                </p>
+              </div>
+            </div>
+
+            {/* AI Insights Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* Insight Card 1 */}
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                    <Zap className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white mb-1">
+                      Peningkatan Arus Kas
+                    </h4>
+                    <p className="text-xs text-gray-300 leading-relaxed">
+                      Arus kas meningkat 9.6%. Pertahankan momentum dengan mengelola piutang.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Insight Card 2 */}
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                    <Target className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white mb-1">
+                      Margin Profit Optimal
+                    </h4>
+                    <p className="text-xs text-gray-300 leading-relaxed">
+                      Margin laba 28% di atas rata-rata industri. Fokus pada efisiensi operasional.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* CTA */}
             <Link
               href="/insights"
-              className="inline-flex items-center gap-2 bg-[#FAF7F2] hover:bg-white text-[#273420] text-xs font-semibold px-4 py-2.5 rounded-full transition-all shadow-sm"
+              className="inline-flex items-center gap-2 bg-white text-gray-900 px-5 py-3 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all shadow-lg hover:shadow-xl group"
             >
-              <span>Lihat Insight</span>
-              <span>→</span>
+              <span>Lihat Semua Insight</span>
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
-          <div className="absolute -right-4 -bottom-4 w-56 h-64 rounded-2xl overflow-hidden shadow-2xl border border-white/10">
-            <div className="w-full h-full bg-gradient-to-br from-[#3E4F34] to-[#273420]"></div>
+        </section>
+
+        {/* Quick Actions & Health */}
+        <aside className="lg:col-span-4 space-y-5">
+          {/* Financial Health Score */}
+          <div className="bg-white rounded-2xl p-5 border border-gray-200/60 shadow-premium hover:shadow-premium-lg transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-gray-900">Kesehatan Finansial</h3>
+              <Link
+                href="/insights"
+                className="text-xs font-semibold text-emerald-600 hover:text-emerald-700"
+              >
+                Detail →
+              </Link>
+            </div>
+
+            {/* Health Score Circle */}
+            <div className="flex items-center gap-4 mb-5">
+              <div className="relative w-20 h-20 flex-shrink-0">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                  <path
+                    className="text-gray-200"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                  />
+                  <path
+                    className="text-emerald-500"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeDasharray="85, 100"
+                    strokeLinecap="round"
+                    strokeWidth="3"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xl font-bold text-gray-900">85%</span>
+                </div>
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-gray-900 mb-1">Sangat Baik</h4>
+                <p className="text-xs text-gray-500">
+                  Semua indikator dalam kondisi sehat
+                </p>
+              </div>
+            </div>
+
+            {/* Health Indicators */}
+            <div className="space-y-2">
+              {[
+                { label: "Arus Kas", status: "normal", color: "emerald" },
+                { label: "Margin Laba", status: "attention", color: "amber" },
+                { label: "Pendapatan", status: "normal", color: "emerald" },
+              ].map((item, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        item.color === "emerald" ? "bg-emerald-500" : "bg-amber-500"
+                      }`}
+                    />
+                    <span className="text-xs font-semibold text-gray-700">{item.label}</span>
+                  </div>
+                  <RiskLevelBadge level={item.status as any} />
+                </div>
+              ))}
+            </div>
           </div>
-        </section>
 
-        {/* Quick Actions */}
-        <section className="lg:col-span-3 flex flex-col justify-between gap-3">
-          <Link
-            href="/transactions/new"
-            className="bg-white rounded-2xl p-4 border border-[#EBE5DC]/70 hover:border-[#314028]/40 transition-all flex items-center gap-3.5 shadow-[0_2px_16px_rgba(39,52,32,0.03)] group"
-          >
-            <div className="w-11 h-11 rounded-xl bg-[#F6EFE9] group-hover:bg-[#ECE4DC] text-amber-800/80 flex items-center justify-center shrink-0 transition-colors">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M12 4v16m8-8H4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.7"
-                />
-              </svg>
-            </div>
-            <div>
-              <h4 className="text-xs font-semibold text-[#1F241D] group-hover:text-[#273420]">
-                Tambah Transaksi
-              </h4>
-              <p className="text-[11px] text-[#7E8379] mt-0.5 leading-snug">
-                Catat transaksi baru usaha Anda
-              </p>
-            </div>
-          </Link>
-
-          <Link
-            href="/reports"
-            className="bg-white rounded-2xl p-4 border border-[#EBE5DC]/70 hover:border-[#EFAAA4]/40 transition-all flex items-center gap-3.5 shadow-[0_2px_16px_rgba(39,52,32,0.03)] group"
-          >
-            <div className="w-11 h-11 rounded-xl bg-[#F7E7E5]/70 group-hover:bg-[#F7E7E5] text-[#DC9690] flex items-center justify-center shrink-0 transition-colors">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.7"
-                />
-              </svg>
-            </div>
-            <div>
-              <h4 className="text-xs font-semibold text-[#1F241D] group-hover:text-[#273420]">
-                Lihat Laporan
-              </h4>
-              <p className="text-[11px] text-[#7E8379] mt-0.5 leading-snug">
-                Laba rugi & arus kas lengkap
-              </p>
-            </div>
-          </Link>
-
-          <Link
-            href="/recommendations"
-            className="bg-white rounded-2xl p-4 border border-[#EBE5DC]/70 hover:border-[#8FA382]/40 transition-all flex items-center gap-3.5 shadow-[0_2px_16px_rgba(39,52,32,0.03)] group"
-          >
-            <div className="w-11 h-11 rounded-xl bg-[#E8EFE5] group-hover:bg-[#DFE9DB] text-[#4F6844] flex items-center justify-center shrink-0 transition-colors">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.7"
-                />
-              </svg>
-            </div>
-            <div>
-              <h4 className="text-xs font-semibold text-[#1F241D] group-hover:text-[#273420]">
-                Rekomendasi AI
-              </h4>
-              <p className="text-[11px] text-[#7E8379] mt-0.5 leading-snug">
-                Saran berbasis analisis data Anda
-              </p>
-            </div>
-          </Link>
-        </section>
-
-        {/* Financial Health */}
-        <section className="lg:col-span-4 bg-white rounded-2xl p-5 border border-[#EBE5DC]/70 shadow-[0_2px_16px_rgba(39,52,32,0.03)] flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-3 border-b border-[#EBE5DC]/50">
-            <h3 className="text-sm font-semibold text-[#1F241D]">Kesehatan Finansial</h3>
+          {/* Quick Actions */}
+          <div className="space-y-2.5">
             <Link
-              href="/insights"
-              className="text-[11px] font-medium text-[#1F241D] bg-[#FAF7F2] hover:bg-[#F4EFEA] border border-[#EBE5DC]/70 px-3 py-1 rounded-full transition-colors"
+              href="/transactions/new"
+              className="group flex items-center gap-3 bg-white hover:bg-gray-50 border border-gray-200/60 hover:border-emerald-200 rounded-xl p-3.5 transition-all shadow-premium-sm hover:shadow-premium"
             >
-              Lihat Detail
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white flex-shrink-0 group-hover:scale-110 transition-transform">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                  <path d="M12 4v16m8-8H4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-gray-900 mb-0.5">Tambah Transaksi</h4>
+                <p className="text-xs text-gray-500">Catat transaksi baru</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" />
+            </Link>
+
+            <Link
+              href="/reports"
+              className="group flex items-center gap-3 bg-white hover:bg-gray-50 border border-gray-200/60 hover:border-blue-200 rounded-xl p-3.5 transition-all shadow-premium-sm hover:shadow-premium"
+            >
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white flex-shrink-0 group-hover:scale-110 transition-transform">
+                <BarChart3 className="w-5 h-5" strokeWidth="2.5" />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-gray-900 mb-0.5">Lihat Laporan</h4>
+                <p className="text-xs text-gray-500">Laba rugi & arus kas</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+            </Link>
+
+            <Link
+              href="/recommendations"
+              className="group flex items-center gap-3 bg-white hover:bg-gray-50 border border-gray-200/60 hover:border-violet-200 rounded-xl p-3.5 transition-all shadow-premium-sm hover:shadow-premium"
+            >
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center text-white flex-shrink-0 group-hover:scale-110 transition-transform">
+                <Sparkles className="w-5 h-5" strokeWidth="2.5" />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-gray-900 mb-0.5">Rekomendasi AI</h4>
+                <p className="text-xs text-gray-500">Saran optimasi bisnis</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-violet-600 group-hover:translate-x-1 transition-all" />
             </Link>
           </div>
-
-          <div className="mt-4 space-y-3">
-            <div className="flex items-center justify-between p-3 bg-[#FAF7F2] rounded-xl">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                <span className="text-xs font-medium text-[#1F241D]">Arus Kas</span>
-              </div>
-              <RiskLevelBadge level="normal" />
-            </div>
-
-            <div className="flex items-center justify-between p-3 bg-[#FAF7F2] rounded-xl">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                <span className="text-xs font-medium text-[#1F241D]">Margin Laba</span>
-              </div>
-              <RiskLevelBadge level="attention" />
-            </div>
-
-            <div className="flex items-center justify-between p-3 bg-[#FAF7F2] rounded-xl">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                <span className="text-xs font-medium text-[#1F241D]">Pendapatan</span>
-              </div>
-              <RiskLevelBadge level="normal" />
-            </div>
-          </div>
-        </section>
+        </aside>
       </div>
 
-      {/* Store Health Banner */}
-      <section className="bg-[#273420] text-white rounded-3xl p-6 shadow-[0_8px_30px_-4px_rgba(44,56,37,0.05)]">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-6">
-            <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                <path
-                  className="text-white/10"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3.5"
-                />
-                <path
-                  className="text-[#8FA382]"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeDasharray="85, 100"
-                  strokeLinecap="round"
-                  strokeWidth="3.5"
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center font-serif text-lg font-semibold text-white">
-                85%
-              </div>
-            </div>
-            <div>
-              <span className="text-xs tracking-wider uppercase text-[#C2CCC0] font-medium">
-                SKOR KESEHATAN
-              </span>
-              <h3 className="text-xl font-serif font-semibold text-white mt-1">
-                Kondisi Baik!
-              </h3>
-              <p className="text-xs text-[#C2CCC0] mt-1">
-                Semua indikator performa & keuangan terverifikasi.
-              </p>
-            </div>
+      {/* Bottom Section: Recent Activity */}
+      <div className="bg-white rounded-2xl p-6 border border-gray-200/60 shadow-premium">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Aktivitas Terkini</h3>
+            <p className="text-xs text-gray-500">Transaksi dan perubahan terbaru</p>
           </div>
-
-          <div className="flex flex-wrap gap-4 text-xs">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-              <span className="text-[#C2CCC0]">Performa</span>
-              <span className="font-semibold">Sangat Baik</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-              <span className="text-[#C2CCC0]">Keamanan</span>
-              <span className="font-semibold">Aman</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
-              <span className="text-[#C2CCC0]">Optimasi</span>
-              <span className="font-semibold">Perlu Peningkatan</span>
-            </div>
-          </div>
+          <Link
+            href="/transactions"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
+          >
+            <span>Lihat Semua</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
-      </section>
+
+        {/* Activity Items */}
+        <div className="space-y-3">
+          {[
+            { type: "income", label: "Penjualan Produk", amount: "+Rp 5,250,000", time: "2 jam lalu" },
+            { type: "expense", label: "Pembelian Bahan Baku", amount: "-Rp 2,100,000", time: "5 jam lalu" },
+            { type: "income", label: "Transfer Bank", amount: "+Rp 8,500,000", time: "1 hari lalu" },
+          ].map((activity, idx) => (
+            <div
+              key={idx}
+              className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    activity.type === "income"
+                      ? "bg-emerald-100 text-emerald-600"
+                      : "bg-red-100 text-red-600"
+                  }`}
+                >
+                  {activity.type === "income" ? (
+                    <TrendingUp className="w-4.5 h-4.5" strokeWidth="2.5" />
+                  ) : (
+                    <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                      <path d="M19 14l-7 7m0 0l-7-7m7 7V3" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{activity.label}</p>
+                  <p className="text-xs text-gray-500">{activity.time}</p>
+                </div>
+              </div>
+              <span
+                className={`text-sm font-bold financial-number ${
+                  activity.type === "income" ? "text-emerald-600" : "text-red-600"
+                }`}
+              >
+                {activity.amount}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

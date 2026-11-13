@@ -1,61 +1,67 @@
 "use client";
 
-import { Bell, Calendar, Search } from "lucide-react";
-import Image from "next/image";
+import { Bell, Calendar, Search, User } from "lucide-react";
 
 export function Navbar() {
   return (
-    <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-7">
+    <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
       {/* Greeting */}
       <div>
-        <h2 className="text-2xl lg:text-[27px] font-semibold text-[#1F241D] flex items-center gap-2">
+        <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 flex items-center gap-2.5 mb-1">
           <span>Halo, User!</span>
-          <span className="text-xl">👋</span>
+          <span className="text-2xl">👋</span>
         </h2>
-        <p className="text-xs lg:text-[13px] text-[#7E8379] mt-0.5">
-          Berikut ringkasan keuangan usaha Anda hari ini.
+        <p className="text-sm text-gray-500">
+          Berikut ringkasan keuangan usaha Anda hari ini
         </p>
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
         {/* Search */}
-        <div className="relative w-64 lg:w-72">
-          <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#7E8379]/70">
-            <Search className="w-4 h-4" />
+        <div className="relative w-64 lg:w-80">
+          <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+            <Search className="w-4 h-4" strokeWidth={2.5} />
           </span>
           <input
-            className="w-full pl-9 pr-11 py-2 text-xs bg-white border border-[#EBE5DC]/80 rounded-full text-[#1F241D] placeholder-[#7E8379]/70 focus:outline-none focus:ring-1 focus:ring-[#314028] focus:border-[#314028] transition-shadow shadow-xs"
-            placeholder="Cari transaksi..."
+            className="w-full pl-11 pr-12 py-2.5 text-sm bg-white border border-gray-200/60 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all shadow-sm hover:shadow-md"
+            placeholder="Cari transaksi, laporan..."
             type="text"
           />
           <span className="absolute inset-y-0 right-0 pr-3 flex items-center">
-            <kbd className="text-[10px] bg-[#FAF7F2] border border-[#EBE5DC] px-1.5 py-0.5 rounded text-[#7E8379] font-sans font-medium">
-              ⌘K
+            <kbd className="hidden sm:inline-flex items-center gap-1 text-[10px] bg-gray-100 border border-gray-200 px-2 py-1 rounded-md text-gray-500 font-semibold">
+              <span>⌘</span>
+              <span>K</span>
             </kbd>
           </span>
         </div>
 
         {/* Notification */}
-        <button className="w-9 h-9 rounded-full bg-white border border-[#EBE5DC]/80 text-[#1F241D] flex items-center justify-center hover:bg-[#FAF7F2] transition-colors shadow-xs relative">
-          <Bell className="w-4 h-4 text-[#1F241D]/80" />
-          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 absolute top-2 right-2"></span>
+        <button className="relative w-10 h-10 rounded-xl bg-white border border-gray-200/60 text-gray-700 flex items-center justify-center hover:bg-gray-50 hover:border-emerald-200 transition-all shadow-sm hover:shadow-md group">
+          <Bell className="w-4.5 h-4.5 group-hover:text-emerald-600 transition-colors" strokeWidth={2.5} />
+          <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-sm">
+            3
+          </span>
         </button>
 
         {/* Calendar */}
-        <button className="w-9 h-9 rounded-full bg-white border border-[#EBE5DC]/80 text-[#1F241D] flex items-center justify-center hover:bg-[#FAF7F2] transition-colors shadow-xs">
-          <Calendar className="w-4 h-4 text-[#1F241D]/80" />
+        <button className="w-10 h-10 rounded-xl bg-white border border-gray-200/60 text-gray-700 flex items-center justify-center hover:bg-gray-50 hover:border-emerald-200 transition-all shadow-sm hover:shadow-md group">
+          <Calendar className="w-4.5 h-4.5 group-hover:text-emerald-600 transition-colors" strokeWidth={2.5} />
         </button>
 
         {/* Profile */}
-        <div className="flex items-center gap-2 pl-1.5">
+        <button className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-xl bg-white border border-gray-200/60 hover:bg-gray-50 hover:border-emerald-200 transition-all shadow-sm hover:shadow-md group">
           <div className="relative">
-            <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-white bg-[#273420] flex items-center justify-center text-white font-semibold text-sm">
-              U
+            <div className="w-8 h-8 rounded-lg overflow-hidden bg-gradient-to-br from-emerald-600 to-emerald-700 flex items-center justify-center text-white font-bold text-sm shadow-sm">
+              <User className="w-4.5 h-4.5" strokeWidth={2.5} />
             </div>
-            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white"></span>
+            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white shadow-sm" />
           </div>
-        </div>
+          <div className="hidden sm:block text-left">
+            <p className="text-xs font-bold text-gray-900 leading-tight">Demo User</p>
+            <p className="text-[10px] text-gray-500 leading-tight">Premium</p>
+          </div>
+        </button>
       </div>
     </header>
   );

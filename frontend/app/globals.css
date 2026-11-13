@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  /* Color System - Premium Fintech Palette */
   --background: 42 33% 97%;
   --foreground: 95 19% 12%;
   --card: 0 0% 100%;
@@ -15,29 +16,52 @@
   --muted-foreground: 95 10% 50%;
   --border: 36 23% 90%;
   --radius: 1rem;
+
+  /* Typography */
   --font-sans: var(--font-plus-jakarta-sans);
-  --font-serif: var(--font-cormorant-garamond);
+  --font-display: var(--font-dm-serif-display);
+
+  /* Emerald Accents */
+  --emerald-50: 151 81% 96%;
+  --emerald-100: 149 80% 90%;
+  --emerald-500: 160 84% 39%;
+  --emerald-600: 161 94% 30%;
+  --emerald-700: 163 94% 24%;
+
+  /* Navy Accents */
+  --navy-50: 214 32% 97%;
+  --navy-600: 217 91% 60%;
+  --navy-700: 215 84% 53%;
+  --navy-900: 217 33% 17%;
 }
 
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
   --font-sans: var(--font-sans);
-  --font-serif: var(--font-serif);
+  --font-display: var(--font-display);
 }
 
 body {
-  background-color: #faf7f2;
-  color: #1f241d;
+  background-color: #f9fafb;
+  color: #111827;
   font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11"; /* Better number rendering */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* Custom scrollbar */
+/* Premium Number Typography */
+.financial-number {
+  font-feature-settings: "tnum", "lnum"; /* Tabular & lining numbers */
+  letter-spacing: -0.02em;
+}
+
+/* Enhanced Scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -46,15 +70,108 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: #d8d2c7;
-  border-radius: 9999px;
+  border-radius: 10px;
+  transition: background 0.2s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #bfb8ac;
 }
 
-/* Selection */
+/* Premium Selection */
 ::selection {
-  background-color: #314028;
+  background-color: #10b981;
   color: white;
+}
+
+/* Smooth Transitions */
+* {
+  transition-property:
+    color, background-color, border-color, opacity, box-shadow;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Refined Focus States */
+:focus-visible {
+  outline: 2px solid hsl(var(--emerald-500));
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Glass Morphism Effect */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Premium Shadow System */
+.shadow-premium-sm {
+  box-shadow:
+    0 1px 3px rgba(39, 52, 32, 0.04),
+    0 1px 2px rgba(39, 52, 32, 0.02);
+}
+
+.shadow-premium {
+  box-shadow:
+    0 4px 16px rgba(39, 52, 32, 0.06),
+    0 2px 4px rgba(39, 52, 32, 0.03);
+}
+
+.shadow-premium-lg {
+  box-shadow:
+    0 12px 32px rgba(39, 52, 32, 0.08),
+    0 4px 8px rgba(39, 52, 32, 0.04);
+}
+
+/* Hover Lift Effect */
+.hover-lift {
+  transition:
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.2s;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 28px rgba(39, 52, 32, 0.1),
+    0 4px 8px rgba(39, 52, 32, 0.06);
+}
+
+/* Shimmer Loading Effect */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.shimmer {
+  animation: shimmer 2s infinite linear;
+  background: linear-gradient(
+    to right,
+    #f6f3ef 0%,
+    #e8e4df 20%,
+    #f6f3ef 40%,
+    #f6f3ef 100%
+  );
+  background-size: 1000px 100%;
+}
+
+/* Pulse Animation for Live Data */
+@keyframes pulse-subtle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.pulse-subtle {
+  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
