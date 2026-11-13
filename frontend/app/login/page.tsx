@@ -44,7 +44,10 @@ export default function LoginPage() {
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     // Mock authentication
-    if (formData.email === "demo@profitai.id" && formData.password === "demo123") {
+    if (
+      formData.email === "demo@profitai.id" &&
+      formData.password === "demo123"
+    ) {
       router.push("/dashboard");
     } else {
       setError("Email atau password salah. Gunakan demo@profitai.id / demo123");
@@ -250,7 +253,11 @@ export default function LoginPage() {
         <div className="relative z-10 max-w-lg text-white">
           <div className="mb-8">
             <h2 className="font-serif text-5xl font-bold leading-tight mb-4">
-              Kelola Keuangan<br />dengan Lebih<br />Cerdas
+              Kelola Keuangan
+              <br />
+              dengan Lebih
+              <br />
+              Cerdas
             </h2>
             <p className="text-lg text-[#C5CCC0] leading-relaxed">
               Platform financial intelligence yang membantu Anda memahami
