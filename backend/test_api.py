@@ -50,8 +50,10 @@ if response.status_code == 200:
             print(f"Total Expense      : Rp {expense:>15}")
             print(f"Simple Surplus     : Rp {surplus:>15}")
             print(f"Net Cash Flow      : Rp {cash_flow:>15}")
-            if margin != 'N/A':
+            if margin is not None and margin != 'N/A':
                 print(f"Surplus Margin     : {margin:>14}%")
+            else:
+                print(f"Surplus Margin     : {'N/A':>14}")
             
             # Show data quality
             dq = data.get('data_quality', {})

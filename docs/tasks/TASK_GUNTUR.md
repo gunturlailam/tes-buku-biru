@@ -12,32 +12,33 @@ Build secure, testable backend and database services that are the single source 
 - API documentation, backend tests, deployment configuration.
 
 ## Phase 0 tasks
-- [ ] Audit existing backend framework, versions, folders, dependencies and run commands.
-- [ ] Document current state; do not replace working stack without approval.
-- [ ] Ensure local environment and database setup works.
-- [ ] Propose database ERD and API contract.
-- [ ] Add `/health` endpoint and basic CI if absent.
+- [x] Audit existing backend framework, versions, folders, dependencies and run commands.
+- [x] Document current state; do not replace working stack without approval.
+- [x] Ensure local environment and database setup works.
+- [x] Propose database ERD and API contract.
+- [x] Add `/health` endpoint and basic CI if absent (CI configured in `.github/workflows/backend-ci.yml`).
 
 ## Phase 1 tasks
-- [ ] Implement organization/member scope.
-- [ ] Implement transaction and category models.
-- [ ] Add migrations and seed categories.
-- [ ] Implement transaction CRUD, validation, reversal/audit.
-- [ ] Add tenant isolation tests.
+- [x] Implement organization/member scope (Server-side resolved tenant isolation).
+- [x] Implement transaction and category models.
+- [x] Add migrations and seed categories (Alembic initialized and migrated to head).
+- [x] Implement transaction CRUD, validation, reversal/audit (Create, Read, Update/PATCH, Reverse).
+- [x] Add tenant isolation tests (`backend/tests/test_tenant_isolation.py` passing 100%).
 
 ## Phase 2 tasks
-- [ ] Implement financial aggregation and formulas from METHODOLOGY.md.
-- [ ] Use Decimal and consistent rounding.
-- [ ] Implement data-quality metadata and unavailable reasons.
-- [ ] Add unit tests and independent fixtures.
-- [ ] Publish OpenAPI and example responses.
+- [x] Implement financial aggregation and formulas from METHODOLOGY.md (`/summary`, `/profit-loss`, `/cash-flow`).
+- [x] Use Decimal and consistent rounding (`Decimal` arithmetic with `ROUND_HALF_UP`).
+- [x] Implement data-quality metadata and unavailable reasons (`status`, `warnings`, `reason`).
+- [x] Add unit tests and independent fixtures (`backend/tests/test_financial_engine.py` passing 100%).
+- [x] Publish OpenAPI and example responses (FastAPI OpenAPI docs live at `/docs`).
 
 ## Phase 3+
-- [ ] Implement import preview/confirm and duplicate guard.
-- [ ] Implement configurable risk rules and evidence.
-- [ ] Implement baseline forecast/backtest interfaces when approved.
-- [ ] Implement recommendation API and optional LLM adapter only after privacy review.
-- [ ] Add logs/monitoring without sensitive payload leakage.
+- [x] Implement import preview/confirm and duplicate guard (`/api/v1/imports/transactions/preview` & `/confirm`).
+- [x] Implement configurable risk rules and evidence (`/api/v1/financial/health` with signals).
+- [x] Implement recommendation API (`/api/v1/recommendations` rule-based with evidence).
+- [x] Add logs/monitoring without sensitive payload leakage (Request-ID headers & safe error envelopes).
+- [ ] Implement baseline forecast/backtest interfaces when approved (Phase 5 / P2).
+- [ ] Implement optional LLM adapter only after privacy review (Phase 5 / P2).
 
 ## Must coordinate with
 - Risfiatul for domain definitions/formulas/risk/forecast acceptance.
