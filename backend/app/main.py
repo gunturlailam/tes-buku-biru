@@ -70,7 +70,12 @@ def register(p: schemas.RegisterIn, db=Depends(get_db)):
 
 @app.post("/api/v1/auth/login")
 def login(p: schemas.LoginIn, db=Depends(get_db)):
+    print(f"[DEBUG] Login attempt - email: {p.email}, password length: {len(p.password)}")
     user = db.query(models.User).filter_by(email=p.email.strip().lower()).first()
+    print(f"[DEBUG] User found: {user is not None}")
+    if user:
+        pwd_match = verify_password(p.password, user.password_hash)
+        print(f"[DEBUG] Password match: {pwd_match}")
     if not user or not verify_password(p.password, user.password_hash):
         raise HTTPException(401, "Email atau password salah")
     token = secrets.token_urlsafe(32)
