@@ -6,51 +6,52 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(
-  amount: string | number | null,
+  value: string | number | null,
   currency: string = "IDR",
 ): string {
-  if (amount === null) return "-";
+  if (value === null || value === undefined) return "-";
 
-  const numAmount = typeof amount === "string" ? parseFloat(amount) : amount;
-  if (isNaN(numAmount)) return "-";
+  const numValue = typeof value === "string" ? parseFloat(value) : value;
+
+  if (isNaN(numValue)) return "-";
 
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
-    currency,
+    currency: currency,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(numAmount);
+  }).format(numValue);
 }
 
-export function formatPercentage(
-  value: string | number | null,
-  decimals: number = 1,
-): string {
-  if (value === null) return "-";
+export function formatNumber(value: number | null): string {
+  if (value === null || value === undefined) return "-";
 
-  const numValue = typeof value === "string" ? parseFloat(value) : value;
-  if (isNaN(numValue)) return "-";
+  return new Intl.NumberFormat("id-ID").format(value);
+}
 
-  return `${numValue.toFixed(decimals)}%`;
+export function formatPercentage(value: number | null): string {
+  if (value === null || value === undefined) return "-";
+
+  return `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
 }
 
 export function formatDate(
   date: string | Date,
   format: "short" | "long" = "short",
 ): string {
-  const d = typeof date === "string" ? new Date(date) : date;
+  const dateObj = typeof date === "string" ? new Date(date) : date;
 
   if (format === "long") {
     return new Intl.DateTimeFormat("id-ID", {
       day: "numeric",
       month: "long",
       year: "numeric",
-    }).format(d);
+    }).format(dateObj);
   }
 
   return new Intl.DateTimeFormat("id-ID", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-  }).format(d);
+  }).format(dateObj);
 }

@@ -19,22 +19,22 @@ const levelConfig: Record<
 > = {
   normal: {
     label: "Normal",
-    color: "bg-green-100 text-green-700 border-green-300",
+    color: "bg-emerald-50 text-emerald-700 border-emerald-200",
     icon: CheckCircle,
   },
   attention: {
     label: "Perhatian",
-    color: "bg-yellow-100 text-yellow-700 border-yellow-300",
+    color: "bg-yellow-50 text-yellow-700 border-yellow-200",
     icon: AlertCircle,
   },
   critical: {
     label: "Kritis",
-    color: "bg-red-100 text-red-700 border-red-300",
+    color: "bg-red-50 text-red-700 border-red-200",
     icon: AlertTriangle,
   },
   insufficient: {
     label: "Data Tidak Cukup",
-    color: "bg-gray-100 text-gray-700 border-gray-300",
+    color: "bg-gray-50 text-gray-600 border-gray-200",
     icon: HelpCircle,
   },
 };
@@ -42,7 +42,7 @@ const levelConfig: Record<
 export function RiskLevelBadge({
   level,
   className,
-  showIcon = true,
+  showIcon = false,
 }: RiskLevelBadgeProps) {
   const config = levelConfig[level];
   const Icon = config.icon;
@@ -50,7 +50,7 @@ export function RiskLevelBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border",
+        "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold border",
         config.color,
         className,
       )}

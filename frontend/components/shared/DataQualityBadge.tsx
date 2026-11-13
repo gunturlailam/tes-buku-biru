@@ -12,19 +12,19 @@ const statusConfig: Record<
 > = {
   insufficient: {
     label: "Data Tidak Cukup",
-    color: "bg-gray-100 text-gray-700 border-gray-300",
+    color: "bg-gray-50 text-gray-600 border-gray-200",
   },
   partial: {
     label: "Data Sebagian",
-    color: "bg-yellow-100 text-yellow-700 border-yellow-300",
+    color: "bg-yellow-50 text-yellow-700 border-yellow-200",
   },
   usable: {
     label: "Data Dapat Digunakan",
-    color: "bg-blue-100 text-blue-700 border-blue-300",
+    color: "bg-blue-50 text-blue-700 border-blue-200",
   },
   verified: {
     label: "Data Terverifikasi",
-    color: "bg-green-100 text-green-700 border-green-300",
+    color: "bg-emerald-50 text-emerald-700 border-emerald-200",
   },
 };
 
@@ -34,7 +34,7 @@ export function DataQualityBadge({ status, className }: DataQualityBadgeProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border",
+        "inline-flex items-center px-3 py-1 rounded-full text-[10px] font-semibold border",
         config.color,
         className,
       )}
