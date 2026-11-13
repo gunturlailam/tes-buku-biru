@@ -1,5 +1,5 @@
 import csv, io, secrets, uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from fastapi import FastAPI, Depends, HTTPException, Query, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +15,7 @@ from .financial_engine import (
     calculate_cash_flow,
     calculate_financial_health,
     generate_recommendations,
+    calculate_cash_flow_forecast,
     money,
 )
 
@@ -53,12 +54,31 @@ DEFAULT_CATEGORIES = [("Penjualan", "income"), ("Pendapatan Jasa", "income"),
     ("Penarikan Pemilik", "owner_draw"), ("Pinjaman Masuk", "loan_received"),
     ("Cicilan Pinjaman", "loan_repayment")]
 
+def log_audit(db, org_id, user_id, action, entity_type=None, entity_id=None, payload=None, ip=None):
+    try:
+        ev = models.AuditEvent(
+            organization_id=org_id,
+            user_id=user_id,
+            action=action,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            payload=jsonable_encoder(payload) if payload is not None else None,
+            ip_address=ip
+        )
+        db.add(ev)
+        db.flush()
+    except Exception:
+        pass
+
+# ==========================================
+# 1. SYSTEM & AUTHENTICATION
+# ==========================================
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
 @app.post("/api/v1/auth/register", status_code=201)
-def register(p: schemas.RegisterIn, db=Depends(get_db)):
+def register(p: schemas.RegisterIn, request: Request, db=Depends(get_db)):
     email = p.email.strip().lower()
     if "@" not in email:
         raise HTTPException(422, "Email tidak valid")
@@ -73,162 +93,70 @@ def register(p: schemas.RegisterIn, db=Depends(get_db)):
     db.add(models.BusinessProfile(organization_id=org.id))
     for name, t in DEFAULT_CATEGORIES:
         db.add(models.Category(organization_id=org.id, name=name, tx_type=t))
+    log_audit(db, org.id, user.id, "USER_REGISTERED", "users", user.id, {"email": email})
     db.commit()
     return {"user_id": user.id, "organization_id": org.id, "message": "Terdaftar, silakan login"}
 
 @app.post("/api/v1/auth/login")
-def login(p: schemas.LoginIn, db=Depends(get_db)):
+def login(p: schemas.LoginIn, request: Request, db=Depends(get_db)):
     user = db.query(models.User).filter_by(email=p.email.strip().lower()).first()
     if not user or not verify_password(p.password, user.password_hash):
         raise HTTPException(401, "Email atau password salah")
     token = secrets.token_urlsafe(32)
-    db.add(models.Session(token=token, user_id=user.id)); db.commit()
+    db.add(models.Session(token=token, user_id=user.id))
+    log_audit(db, None, user.id, "USER_LOGGED_IN", "sessions", None, {"email": user.email})
+    db.commit()
     return {"access_token": token, "token_type": "bearer"}
 
 @app.get("/api/v1/me")
-def me(user=Depends(get_current_user), org_id=Depends(get_current_org)):
-    return {"id": user.id, "email": user.email, "full_name": user.full_name,
-            "organization_id": org_id}
+def me(user=Depends(get_current_user), org_id=Depends(get_current_org), db=Depends(get_db)):
+    m = db.query(models.Membership).filter_by(organization_id=org_id, user_id=user.id).first()
+    return {
+        "id": user.id,
+        "email": user.email,
+        "full_name": user.full_name,
+        "organization_id": org_id,
+        "role": m.role if m else "viewer"
+    }
 
-@app.get("/api/v1/categories")
-def categories(org_id=Depends(get_current_org), db=Depends(get_db)):
-    rows = db.query(models.Category).filter_by(organization_id=org_id).order_by(models.Category.id).all()
-    return [{"id": c.id, "name": c.name, "tx_type": c.tx_type} for c in rows]
+# ==========================================
+# 2. ORGANIZATIONS & MEMBERS
+# ==========================================
+@app.get("/api/v1/organizations")
+def list_organizations(user=Depends(get_current_user), db=Depends(get_db)):
+    memberships = db.query(models.Membership).filter_by(user_id=user.id).all()
+    res = []
+    for m in memberships:
+        org = db.query(models.Organization).filter_by(id=m.organization_id).first()
+        if org:
+            prof = db.query(models.BusinessProfile).filter_by(organization_id=org.id).first()
+            res.append({
+                "id": org.id,
+                "name": org.name,
+                "role": m.role,
+                "industry": prof.industry if prof else None,
+                "currency": prof.currency if prof else "IDR",
+                "created_at": str(org.created_at)
+            })
+    return res
 
-def tx_dict(t):
-    return {"id": t.id, "transaction_date": str(t.transaction_date),
-            "description": t.description, "amount": money(t.amount),
-            "tx_type": t.tx_type, "category_id": t.category_id,
-            "status": t.status, "reversal_of_id": t.reversal_of_id}
-
-@app.post("/api/v1/transactions", status_code=201)
-def create_tx(p: schemas.TransactionIn, user=Depends(get_current_user),
-              org_id=Depends(get_current_org), db=Depends(get_db)):
-    if p.category_id is not None:
-        cat = db.query(models.Category).filter_by(id=p.category_id, organization_id=org_id).first()
-        if not cat:
-            raise HTTPException(422, "Kategori tidak ditemukan di organisasimu")
-        if cat.tx_type != p.tx_type:
-            raise HTTPException(422, "Tipe kategori tidak cocok dengan tipe transaksi")
-    t = models.Transaction(organization_id=org_id, created_by=user.id, **p.model_dump())
-    db.add(t); db.commit(); db.refresh(t)
-    return tx_dict(t)
-
-@app.get("/api/v1/transactions")
-def list_tx(date_from: date = Query(alias="from"), date_to: date = Query(alias="to"),
-            limit: int = Query(50, le=200), offset: int = 0,
-            org_id=Depends(get_current_org), db=Depends(get_db)):
-    q = db.query(models.Transaction).filter(
-        models.Transaction.organization_id == org_id,
-        models.Transaction.transaction_date >= date_from,
-        models.Transaction.transaction_date <= date_to,
-    ).order_by(models.Transaction.transaction_date.desc(), models.Transaction.id.desc())
-    total = q.count()
-    rows = q.limit(limit).offset(offset).all()
-    return {"total": total, "limit": limit, "offset": offset,
-            "items": [tx_dict(t) for t in rows]}
-
-@app.get("/api/v1/transactions/{tx_id}")
-def get_tx(tx_id: int, org_id=Depends(get_current_org), db=Depends(get_db)):
-    t = db.query(models.Transaction).filter_by(id=tx_id, organization_id=org_id).first()
-    if not t:
-        raise HTTPException(404, "Transaksi tidak ditemukan")
-    return tx_dict(t)
-
-@app.patch("/api/v1/transactions/{tx_id}")
-def update_tx(tx_id: int, p: schemas.TransactionUpdate,
-              user=Depends(get_current_user), org_id=Depends(get_current_org),
-              db=Depends(get_db)):
-    t = db.query(models.Transaction).filter_by(id=tx_id, organization_id=org_id).first()
-    if not t:
-        raise HTTPException(404, "Transaksi tidak ditemukan")
-    if t.status == "reversed" or t.reversal_of_id is not None:
-        raise HTTPException(409, "Transaksi yang sudah di-reverse atau baris reversal tidak dapat diubah")
-
-    target_type = p.tx_type or t.tx_type
-    target_category_id = p.category_id if p.category_id is not None else t.category_id
-
-    if target_category_id is not None:
-        cat = db.query(models.Category).filter_by(id=target_category_id, organization_id=org_id).first()
-        if not cat:
-            raise HTTPException(422, "Kategori tidak ditemukan di organisasimu")
-        if cat.tx_type != target_type:
-            raise HTTPException(422, "Tipe kategori tidak cocok dengan tipe transaksi")
-
-    if p.transaction_date is not None:
-        t.transaction_date = p.transaction_date
-    if p.description is not None:
-        t.description = p.description
-    if p.amount is not None:
-        t.amount = p.amount
-    if p.tx_type is not None:
-        t.tx_type = p.tx_type
-    if p.category_id is not None:
-        t.category_id = p.category_id
-
+@app.post("/api/v1/organizations", status_code=201)
+def create_organization(p: schemas.OrganizationCreate, user=Depends(get_current_user), db=Depends(get_db)):
+    org = models.Organization(name=p.name)
+    db.add(org); db.flush()
+    db.add(models.Membership(organization_id=org.id, user_id=user.id, role="owner"))
+    db.add(models.BusinessProfile(
+        organization_id=org.id,
+        industry=p.industry,
+        currency=p.currency or "IDR",
+        timezone=p.timezone or "Asia/Jakarta",
+        accounting_basis=p.accounting_basis or "cash"
+    ))
+    for name, t in DEFAULT_CATEGORIES:
+        db.add(models.Category(organization_id=org.id, name=name, tx_type=t))
+    log_audit(db, org.id, user.id, "ORGANIZATION_CREATED", "organizations", org.id, {"name": p.name})
     db.commit()
-    db.refresh(t)
-    return tx_dict(t)
-
-@app.post("/api/v1/transactions/{tx_id}/reverse", status_code=201)
-def reverse_tx(tx_id: int, user=Depends(get_current_user),
-               org_id=Depends(get_current_org), db=Depends(get_db)):
-    t = db.query(models.Transaction).filter_by(id=tx_id, organization_id=org_id).first()
-    if not t:
-        raise HTTPException(404, "Transaksi tidak ditemukan")
-    if t.status != "posted" or t.reversal_of_id is not None:
-        raise HTTPException(409, "Sudah di-reverse atau merupakan baris reversal")
-    rev = models.Transaction(organization_id=org_id, transaction_date=t.transaction_date,
-        description=f"Reversal of #{t.id}", amount=t.amount, tx_type=t.tx_type,
-        category_id=t.category_id, reversal_of_id=t.id, created_by=user.id)
-    t.status = "reversed"
-    db.add(rev); db.commit(); db.refresh(rev)
-    return tx_dict(rev)
-
-@app.get("/api/v1/financial/summary")
-def summary(date_from: date = Query(alias="from"), date_to: date = Query(alias="to"),
-            org_id=Depends(get_current_org), db=Depends(get_db)):
-    rows = db.query(models.Transaction).filter(
-        models.Transaction.organization_id == org_id,
-        models.Transaction.transaction_date >= date_from,
-        models.Transaction.transaction_date <= date_to).all()
-    return summarize(rows, date_from, date_to)
-
-@app.get("/api/v1/financial/profit-loss")
-def profit_loss(date_from: date = Query(alias="from"), date_to: date = Query(alias="to"),
-                org_id=Depends(get_current_org), db=Depends(get_db)):
-    rows = db.query(models.Transaction).filter(
-        models.Transaction.organization_id == org_id,
-        models.Transaction.transaction_date >= date_from,
-        models.Transaction.transaction_date <= date_to).all()
-    return calculate_profit_loss(rows, date_from, date_to)
-
-@app.get("/api/v1/financial/cash-flow")
-def cash_flow(date_from: date = Query(alias="from"), date_to: date = Query(alias="to"),
-              org_id=Depends(get_current_org), db=Depends(get_db)):
-    rows = db.query(models.Transaction).filter(
-        models.Transaction.organization_id == org_id,
-        models.Transaction.transaction_date >= date_from,
-        models.Transaction.transaction_date <= date_to).all()
-    return calculate_cash_flow(rows, date_from, date_to)
-
-@app.get("/api/v1/financial/health")
-def financial_health(date_from: date = Query(alias="from"), date_to: date = Query(alias="to"),
-                     org_id=Depends(get_current_org), db=Depends(get_db)):
-    rows = db.query(models.Transaction).filter(
-        models.Transaction.organization_id == org_id,
-        models.Transaction.transaction_date >= date_from,
-        models.Transaction.transaction_date <= date_to).all()
-    return calculate_financial_health(rows, date_from, date_to)
-
-@app.get("/api/v1/recommendations")
-def recommendations(date_from: date = Query(alias="from"), date_to: date = Query(alias="to"),
-                    org_id=Depends(get_current_org), db=Depends(get_db)):
-    rows = db.query(models.Transaction).filter(
-        models.Transaction.organization_id == org_id,
-        models.Transaction.transaction_date >= date_from,
-        models.Transaction.transaction_date <= date_to).all()
-    return generate_recommendations(rows, date_from, date_to)
+    return {"id": org.id, "name": org.name, "role": "owner"}
 
 @app.get("/api/v1/organizations/{target_org_id}")
 def get_organization(target_org_id: int, org_id=Depends(get_current_org), db=Depends(get_db)):
@@ -249,7 +177,7 @@ def get_organization(target_org_id: int, org_id=Depends(get_current_org), db=Dep
 
 @app.patch("/api/v1/organizations/{target_org_id}")
 def update_organization(target_org_id: int, p: schemas.OrganizationUpdate,
-                        org_id=Depends(get_current_org), db=Depends(get_db)):
+                        user=Depends(get_current_user), org_id=Depends(get_current_org), db=Depends(get_db)):
     if target_org_id != org_id:
         raise HTTPException(403, "Akses ke organisasi lain ditolak")
     org = db.query(models.Organization).filter_by(id=org_id).first()
@@ -271,6 +199,7 @@ def update_organization(target_org_id: int, p: schemas.OrganizationUpdate,
     if p.accounting_basis:
         profile.accounting_basis = p.accounting_basis
 
+    log_audit(db, org_id, user.id, "ORGANIZATION_UPDATED", "organizations", org_id, p.model_dump(exclude_unset=True))
     db.commit()
     db.refresh(org)
     return {
@@ -282,8 +211,556 @@ def update_organization(target_org_id: int, p: schemas.OrganizationUpdate,
         "accounting_basis": profile.accounting_basis,
     }
 
+@app.get("/api/v1/organizations/{target_org_id}/members")
+def list_members(target_org_id: int, org_id=Depends(get_current_org), db=Depends(get_db)):
+    if target_org_id != org_id:
+        raise HTTPException(403, "Akses ke organisasi lain ditolak")
+    memberships = db.query(models.Membership).filter_by(organization_id=org_id).all()
+    res = []
+    for m in memberships:
+        u = db.query(models.User).filter_by(id=m.user_id).first()
+        if u:
+            res.append({
+                "user_id": u.id,
+                "email": u.email,
+                "full_name": u.full_name,
+                "role": m.role,
+                "joined_at": str(m.created_at)
+            })
+    return res
+
+@app.post("/api/v1/organizations/{target_org_id}/members", status_code=201)
+def add_member(target_org_id: int, p: schemas.MemberAdd,
+               user=Depends(get_current_user), org_id=Depends(get_current_org), db=Depends(get_db)):
+    if target_org_id != org_id:
+        raise HTTPException(403, "Akses ke organisasi lain ditolak")
+    target_user = db.query(models.User).filter_by(email=p.email.strip().lower()).first()
+    if not target_user:
+        raise HTTPException(404, "User dengan email tersebut belum terdaftar di sistem")
+    existing = db.query(models.Membership).filter_by(organization_id=org_id, user_id=target_user.id).first()
+    if existing:
+        raise HTTPException(409, "User sudah menjadi anggota organisasi ini")
+    m = models.Membership(organization_id=org_id, user_id=target_user.id, role=p.role)
+    db.add(m)
+    log_audit(db, org_id, user.id, "MEMBER_ADDED", "organization_members", target_user.id, {"role": p.role})
+    db.commit()
+    return {"message": "Anggota berhasil ditambahkan", "user_id": target_user.id, "role": p.role}
+
+@app.patch("/api/v1/organizations/{target_org_id}/members/{target_user_id}")
+def update_member_role(target_org_id: int, target_user_id: int, p: schemas.MemberRoleUpdate,
+                       user=Depends(get_current_user), org_id=Depends(get_current_org), db=Depends(get_db)):
+    if target_org_id != org_id:
+        raise HTTPException(403, "Akses ke organisasi lain ditolak")
+    m = db.query(models.Membership).filter_by(organization_id=org_id, user_id=target_user_id).first()
+    if not m:
+        raise HTTPException(404, "Anggota tidak ditemukan di organisasi ini")
+    m.role = p.role
+    log_audit(db, org_id, user.id, "MEMBER_ROLE_UPDATED", "organization_members", target_user_id, {"new_role": p.role})
+    db.commit()
+    return {"message": "Role anggota berhasil diperbarui", "user_id": target_user_id, "role": p.role}
+
+@app.delete("/api/v1/organizations/{target_org_id}/members/{target_user_id}")
+def remove_member(target_org_id: int, target_user_id: int,
+                  user=Depends(get_current_user), org_id=Depends(get_current_org), db=Depends(get_db)):
+    if target_org_id != org_id:
+        raise HTTPException(403, "Akses ke organisasi lain ditolak")
+    m = db.query(models.Membership).filter_by(organization_id=org_id, user_id=target_user_id).first()
+    if not m:
+        raise HTTPException(404, "Anggota tidak ditemukan di organisasi ini")
+    db.delete(m)
+    log_audit(db, org_id, user.id, "MEMBER_REMOVED", "organization_members", target_user_id)
+    db.commit()
+    return {"message": "Anggota berhasil dihapus dari organisasi"}
+
+# ==========================================
+# 3. CHART OF ACCOUNTS (COA)
+# ==========================================
+@app.get("/api/v1/accounts")
+def list_accounts(org_id=Depends(get_current_org), db=Depends(get_db)):
+    rows = db.query(models.Account).filter_by(organization_id=org_id).order_by(models.Account.code).all()
+    return [{
+        "id": a.id, "code": a.code, "name": a.name,
+        "account_type": a.account_type, "normal_balance": a.normal_balance,
+        "is_active": a.is_active
+    } for a in rows]
+
+@app.post("/api/v1/accounts", status_code=201)
+def create_account(p: schemas.AccountCreate, user=Depends(get_current_user),
+                   org_id=Depends(get_current_org), db=Depends(get_db)):
+    if db.query(models.Account).filter_by(organization_id=org_id, code=p.code).first():
+        raise HTTPException(409, f"Akun dengan kode '{p.code}' sudah ada")
+    a = models.Account(organization_id=org_id, **p.model_dump())
+    db.add(a); db.commit(); db.refresh(a)
+    log_audit(db, org_id, user.id, "ACCOUNT_CREATED", "accounts", a.id, {"code": a.code, "name": a.name})
+    return {"id": a.id, "code": a.code, "name": a.name, "account_type": a.account_type}
+
+@app.get("/api/v1/accounts/{account_id}")
+def get_account(account_id: int, org_id=Depends(get_current_org), db=Depends(get_db)):
+    a = db.query(models.Account).filter_by(id=account_id, organization_id=org_id).first()
+    if not a:
+        raise HTTPException(404, "Akun tidak ditemukan")
+    return {"id": a.id, "code": a.code, "name": a.name, "account_type": a.account_type, "normal_balance": a.normal_balance, "is_active": a.is_active}
+
+@app.patch("/api/v1/accounts/{account_id}")
+def update_account(account_id: int, p: schemas.AccountUpdate, user=Depends(get_current_user),
+                   org_id=Depends(get_current_org), db=Depends(get_db)):
+    a = db.query(models.Account).filter_by(id=account_id, organization_id=org_id).first()
+    if not a:
+        raise HTTPException(404, "Akun tidak ditemukan")
+    if p.name is not None: a.name = p.name
+    if p.account_type is not None: a.account_type = p.account_type
+    if p.normal_balance is not None: a.normal_balance = p.normal_balance
+    if p.is_active is not None: a.is_active = p.is_active
+    db.commit(); db.refresh(a)
+    log_audit(db, org_id, user.id, "ACCOUNT_UPDATED", "accounts", a.id, p.model_dump(exclude_unset=True))
+    return {"id": a.id, "code": a.code, "name": a.name, "is_active": a.is_active}
+
+@app.delete("/api/v1/accounts/{account_id}")
+def delete_account(account_id: int, user=Depends(get_current_user),
+                   org_id=Depends(get_current_org), db=Depends(get_db)):
+    a = db.query(models.Account).filter_by(id=account_id, organization_id=org_id).first()
+    if not a:
+        raise HTTPException(404, "Akun tidak ditemukan")
+    a.is_active = False  # Soft deactivate to protect accounting integrity
+    db.commit()
+    log_audit(db, org_id, user.id, "ACCOUNT_DEACTIVATED", "accounts", a.id)
+    return {"message": "Akun dinonaktifkan"}
+
+# ==========================================
+# 4. CATEGORIES
+# ==========================================
+@app.get("/api/v1/categories")
+def categories(org_id=Depends(get_current_org), db=Depends(get_db)):
+    rows = db.query(models.Category).filter_by(organization_id=org_id).order_by(models.Category.id).all()
+    return [{"id": c.id, "name": c.name, "tx_type": c.tx_type, "account_id": c.account_id} for c in rows]
+
+@app.post("/api/v1/categories", status_code=201)
+def create_category(p: schemas.CategoryCreate, user=Depends(get_current_user),
+                    org_id=Depends(get_current_org), db=Depends(get_db)):
+    if db.query(models.Category).filter_by(organization_id=org_id, name=p.name, tx_type=p.tx_type).first():
+        raise HTTPException(409, "Kategori dengan nama dan tipe tersebut sudah ada")
+    c = models.Category(organization_id=org_id, **p.model_dump())
+    db.add(c); db.commit(); db.refresh(c)
+    log_audit(db, org_id, user.id, "CATEGORY_CREATED", "categories", c.id, {"name": c.name})
+    return {"id": c.id, "name": c.name, "tx_type": c.tx_type, "account_id": c.account_id}
+
+@app.patch("/api/v1/categories/{cat_id}")
+def update_category(cat_id: int, p: schemas.CategoryUpdate, user=Depends(get_current_user),
+                    org_id=Depends(get_current_org), db=Depends(get_db)):
+    c = db.query(models.Category).filter_by(id=cat_id, organization_id=org_id).first()
+    if not c:
+        raise HTTPException(404, "Kategori tidak ditemukan")
+    if p.name is not None: c.name = p.name
+    if p.tx_type is not None: c.tx_type = p.tx_type
+    if p.account_id is not None: c.account_id = p.account_id
+    db.commit(); db.refresh(c)
+    log_audit(db, org_id, user.id, "CATEGORY_UPDATED", "categories", c.id, p.model_dump(exclude_unset=True))
+    return {"id": c.id, "name": c.name, "tx_type": c.tx_type, "account_id": c.account_id}
+
+@app.delete("/api/v1/categories/{cat_id}")
+def delete_category(cat_id: int, user=Depends(get_current_user),
+                    org_id=Depends(get_current_org), db=Depends(get_db)):
+    c = db.query(models.Category).filter_by(id=cat_id, organization_id=org_id).first()
+    if not c:
+        raise HTTPException(404, "Kategori tidak ditemukan")
+    in_use = db.query(models.Transaction).filter_by(category_id=cat_id).first()
+    if in_use:
+        raise HTTPException(409, "Kategori masih digunakan dalam transaksi tercatat dan tidak dapat dihapus")
+    db.delete(c)
+    db.commit()
+    log_audit(db, org_id, user.id, "CATEGORY_DELETED", "categories", cat_id)
+    return {"message": "Kategori berhasil dihapus"}
+
+# ==========================================
+# 5. TRANSACTIONS & REVERSALS
+# ==========================================
+def tx_dict(t):
+    return {"id": t.id, "transaction_date": str(t.transaction_date),
+            "description": t.description, "amount": money(t.amount),
+            "tx_type": t.tx_type, "category_id": t.category_id,
+            "account_id": t.account_id, "status": t.status, "reversal_of_id": t.reversal_of_id}
+
+@app.post("/api/v1/transactions", status_code=201)
+def create_tx(p: schemas.TransactionIn, user=Depends(get_current_user),
+              org_id=Depends(get_current_org), db=Depends(get_db)):
+    if p.category_id is not None:
+        cat = db.query(models.Category).filter_by(id=p.category_id, organization_id=org_id).first()
+        if not cat:
+            raise HTTPException(422, "Kategori tidak ditemukan di organisasimu")
+        if cat.tx_type != p.tx_type:
+            raise HTTPException(422, "Tipe kategori tidak cocok dengan tipe transaksi")
+    t = models.Transaction(organization_id=org_id, created_by=user.id, **p.model_dump())
+    db.add(t); db.commit(); db.refresh(t)
+    log_audit(db, org_id, user.id, "TRANSACTION_CREATED", "transactions", t.id, {"amount": money(t.amount)})
+    return tx_dict(t)
+
+@app.get("/api/v1/transactions")
+def list_tx(date_from: date = Query(alias="from"), date_to: date = Query(alias="to"),
+            limit: int = Query(50, le=200), offset: int = 0,
+            org_id=Depends(get_current_org), db=Depends(get_db)):
+    q = db.query(models.Transaction).filter(
+        models.Transaction.organization_id == org_id,
+        models.Transaction.transaction_date >= date_from,
+        models.Transaction.transaction_date <= date_to,
+    ).order_by(models.Transaction.transaction_date.desc(), models.Transaction.id.desc())
+    total = q.count()
+    rows = q.limit(limit).offset(offset).all()
+    return {"total": total, "limit": limit, "offset": offset,
+            "items": [tx_dict(t) for t in rows]}
+
+@app.get("/api/v1/transactions/reversals")
+def list_reversals(org_id=Depends(get_current_org), db=Depends(get_db)):
+    rows = db.query(models.TransactionReversal).filter_by(organization_id=org_id).order_by(models.TransactionReversal.id.desc()).all()
+    return [{
+        "id": r.id, "original_transaction_id": r.original_transaction_id,
+        "reversal_transaction_id": r.reversal_transaction_id, "reason": r.reason,
+        "created_by": r.created_by, "created_at": str(r.created_at)
+    } for r in rows]
+
+@app.get("/api/v1/transactions/{tx_id}")
+def get_tx(tx_id: int, org_id=Depends(get_current_org), db=Depends(get_db)):
+    t = db.query(models.Transaction).filter_by(id=tx_id, organization_id=org_id).first()
+    if not t:
+        raise HTTPException(404, "Transaksi tidak ditemukan")
+    return tx_dict(t)
+
+@app.patch("/api/v1/transactions/{tx_id}")
+def update_tx(tx_id: int, p: schemas.TransactionUpdate,
+              user=Depends(get_current_user), org_id=Depends(get_current_org), db=Depends(get_db)):
+    t = db.query(models.Transaction).filter_by(id=tx_id, organization_id=org_id).first()
+    if not t:
+        raise HTTPException(404, "Transaksi tidak ditemukan")
+    if t.status == "reversed" or t.reversal_of_id is not None:
+        raise HTTPException(409, "Transaksi yang sudah di-reverse atau baris reversal tidak dapat diubah")
+
+    target_type = p.tx_type or t.tx_type
+    target_category_id = p.category_id if p.category_id is not None else t.category_id
+
+    if target_category_id is not None:
+        cat = db.query(models.Category).filter_by(id=target_category_id, organization_id=org_id).first()
+        if not cat:
+            raise HTTPException(422, "Kategori tidak ditemukan di organisasimu")
+        if cat.tx_type != target_type:
+            raise HTTPException(422, "Tipe kategori tidak cocok dengan tipe transaksi")
+
+    if p.transaction_date is not None: t.transaction_date = p.transaction_date
+    if p.description is not None: t.description = p.description
+    if p.amount is not None: t.amount = p.amount
+    if p.tx_type is not None: t.tx_type = p.tx_type
+    if p.category_id is not None: t.category_id = p.category_id
+    if p.account_id is not None: t.account_id = p.account_id
+
+    log_audit(db, org_id, user.id, "TRANSACTION_UPDATED", "transactions", t.id, p.model_dump(exclude_unset=True))
+    db.commit(); db.refresh(t)
+    return tx_dict(t)
+
+@app.post("/api/v1/transactions/{tx_id}/reverse", status_code=201)
+def reverse_tx(tx_id: int, user=Depends(get_current_user),
+               org_id=Depends(get_current_org), db=Depends(get_db)):
+    t = db.query(models.Transaction).filter_by(id=tx_id, organization_id=org_id).first()
+    if not t:
+        raise HTTPException(404, "Transaksi tidak ditemukan")
+    if t.status != "posted" or t.reversal_of_id is not None:
+        raise HTTPException(409, "Sudah di-reverse atau merupakan baris reversal")
+    rev = models.Transaction(organization_id=org_id, transaction_date=t.transaction_date,
+        description=f"Reversal of #{t.id}", amount=t.amount, tx_type=t.tx_type,
+        category_id=t.category_id, account_id=t.account_id, reversal_of_id=t.id, created_by=user.id)
+    t.status = "reversed"
+    db.add(rev); db.flush()
+    # Save to transaction_reversals table
+    db.add(models.TransactionReversal(
+        organization_id=org_id,
+        original_transaction_id=t.id,
+        reversal_transaction_id=rev.id,
+        reason=f"Pembalikan transaksi #{t.id}",
+        created_by=user.id
+    ))
+    log_audit(db, org_id, user.id, "TRANSACTION_REVERSED", "transactions", t.id, {"reversal_id": rev.id})
+    db.commit(); db.refresh(rev)
+    return tx_dict(rev)
+
+# ==========================================
+# 6. OPENING BALANCES
+# ==========================================
+@app.get("/api/v1/opening-balances")
+def list_opening_balances(org_id=Depends(get_current_org), db=Depends(get_db)):
+    rows = db.query(models.OpeningBalance).filter_by(organization_id=org_id).order_by(models.OpeningBalance.effective_date.desc()).all()
+    res = []
+    for ob in rows:
+        acc = db.query(models.Account).filter_by(id=ob.account_id).first()
+        res.append({
+            "id": ob.id, "account_id": ob.account_id,
+            "account_code": acc.code if acc else "", "account_name": acc.name if acc else "",
+            "effective_date": str(ob.effective_date), "amount": money(ob.amount)
+        })
+    return res
+
+@app.post("/api/v1/opening-balances", status_code=201)
+def create_opening_balance(p: schemas.OpeningBalanceCreate, user=Depends(get_current_user),
+                           org_id=Depends(get_current_org), db=Depends(get_db)):
+    acc = db.query(models.Account).filter_by(id=p.account_id, organization_id=org_id).first()
+    if not acc:
+        raise HTTPException(404, "Akun tidak ditemukan di organisasimu")
+    ob = models.OpeningBalance(organization_id=org_id, created_by=user.id, **p.model_dump())
+    db.add(ob); db.commit(); db.refresh(ob)
+    log_audit(db, org_id, user.id, "OPENING_BALANCE_SET", "opening_balances", ob.id, {"amount": money(ob.amount)})
+    return {"id": ob.id, "account_id": ob.account_id, "amount": money(ob.amount), "effective_date": str(ob.effective_date)}
+
+@app.patch("/api/v1/opening-balances/{ob_id}")
+def update_opening_balance(ob_id: int, p: schemas.OpeningBalanceUpdate, user=Depends(get_current_user),
+                           org_id=Depends(get_current_org), db=Depends(get_db)):
+    ob = db.query(models.OpeningBalance).filter_by(id=ob_id, organization_id=org_id).first()
+    if not ob:
+        raise HTTPException(404, "Saldo awal tidak ditemukan")
+    if p.effective_date is not None: ob.effective_date = p.effective_date
+    if p.amount is not None: ob.amount = p.amount
+    db.commit(); db.refresh(ob)
+    return {"id": ob.id, "account_id": ob.account_id, "amount": money(ob.amount), "effective_date": str(ob.effective_date)}
+
+# ==========================================
+# 7. FINANCIAL REPORTS & CALCULATION RUNS
+# ==========================================
+@app.get("/api/v1/financial/summary")
+def summary(date_from: date = Query(alias="from"), date_to: date = Query(alias="to"),
+            org_id=Depends(get_current_org), db=Depends(get_db)):
+    rows = db.query(models.Transaction).filter(
+        models.Transaction.organization_id == org_id,
+        models.Transaction.transaction_date >= date_from,
+        models.Transaction.transaction_date <= date_to).all()
+    res = summarize(rows, date_from, date_to)
+    # Log calculation run
+    db.add(models.FinancialCalculationRun(
+        organization_id=org_id,
+        period_from=date_from,
+        period_to=date_to,
+        formula_version=res["formula_version"],
+        data_quality_status=res["data_quality"]["status"],
+        calculated_metrics={"net_revenue": res["metrics"]["net_revenue"]["value"], "surplus": res["metrics"]["simple_surplus"]["value"]},
+        warnings=res["data_quality"]["warnings"]
+    ))
+    db.commit()
+    return res
+
+@app.get("/api/v1/financial/profit-loss")
+def profit_loss(date_from: date = Query(alias="from"), date_to: date = Query(alias="to"),
+                org_id=Depends(get_current_org), db=Depends(get_db)):
+    rows = db.query(models.Transaction).filter(
+        models.Transaction.organization_id == org_id,
+        models.Transaction.transaction_date >= date_from,
+        models.Transaction.transaction_date <= date_to).all()
+    return calculate_profit_loss(rows, date_from, date_to)
+
+@app.get("/api/v1/financial/cash-flow")
+def cash_flow(date_from: date = Query(alias="from"), date_to: date = Query(alias="to"),
+              org_id=Depends(get_current_org), db=Depends(get_db)):
+    rows = db.query(models.Transaction).filter(
+        models.Transaction.organization_id == org_id,
+        models.Transaction.transaction_date >= date_from,
+        models.Transaction.transaction_date <= date_to).all()
+    return calculate_cash_flow(rows, date_from, date_to)
+
+@app.get("/api/v1/financial/runs")
+def list_calculation_runs(limit: int = 20, org_id=Depends(get_current_org), db=Depends(get_db)):
+    runs = db.query(models.FinancialCalculationRun).filter_by(organization_id=org_id).order_by(models.FinancialCalculationRun.id.desc()).limit(limit).all()
+    return [{
+        "id": r.id, "period_from": str(r.period_from), "period_to": str(r.period_to),
+        "formula_version": r.formula_version, "data_quality_status": r.data_quality_status,
+        "metrics": r.calculated_metrics, "created_at": str(r.created_at)
+    } for r in runs]
+
+# ==========================================
+# 8. RISK RULES & SIGNALS
+# ==========================================
+@app.get("/api/v1/risk-rules")
+def list_risk_rules(db=Depends(get_db)):
+    rules = db.query(models.RiskRuleVersion).all()
+    return [{
+        "id": r.id, "rule_code": r.rule_code, "version": r.version,
+        "description": r.description, "threshold_config": r.threshold_config, "is_active": r.is_active
+    } for r in rules]
+
+@app.patch("/api/v1/risk-rules/{rule_code}")
+def update_risk_rule(rule_code: str, p: schemas.RiskRuleUpdate, user=Depends(get_current_user), db=Depends(get_db)):
+    r = db.query(models.RiskRuleVersion).filter_by(rule_code=rule_code).first()
+    if not r:
+        raise HTTPException(404, "Rule tidak ditemukan")
+    if p.threshold_config is not None: r.threshold_config = p.threshold_config
+    if p.is_active is not None: r.is_active = p.is_active
+    db.commit(); db.refresh(r)
+    return {"rule_code": r.rule_code, "threshold_config": r.threshold_config, "is_active": r.is_active}
+
+@app.get("/api/v1/financial/health")
+def financial_health(date_from: date = Query(alias="from"), date_to: date = Query(alias="to"),
+                     org_id=Depends(get_current_org), db=Depends(get_db)):
+    rows = db.query(models.Transaction).filter(
+        models.Transaction.organization_id == org_id,
+        models.Transaction.transaction_date >= date_from,
+        models.Transaction.transaction_date <= date_to).all()
+    res = calculate_financial_health(rows, date_from, date_to)
+    # Save signals to risk_signals table
+    for s in res["signals"]:
+        db.add(models.RiskSignal(
+            organization_id=org_id,
+            rule_code=s["id"],
+            level=s["level"],
+            trigger_metric=s["trigger_metric"],
+            current_value=str(s["current_value"]) if s["current_value"] is not None else None,
+            threshold_value=str(s.get("threshold")) if s.get("threshold") is not None else None,
+            explanation=s["explanation"],
+            recommendation=s.get("recommendation")
+        ))
+    db.commit()
+    return res
+
+@app.get("/api/v1/financial/signals")
+def list_signals(limit: int = 50, org_id=Depends(get_current_org), db=Depends(get_db)):
+    rows = db.query(models.RiskSignal).filter_by(organization_id=org_id).order_by(models.RiskSignal.id.desc()).limit(limit).all()
+    return [{
+        "id": sig.id, "rule_code": sig.rule_code, "level": sig.level,
+        "trigger_metric": sig.trigger_metric, "current_value": sig.current_value,
+        "explanation": sig.explanation, "created_at": str(sig.created_at)
+    } for sig in rows]
+
+# ==========================================
+# 9. FORECASTS (P2 / CASH FLOW FORECAST)
+# ==========================================
+@app.post("/api/v1/forecasts/cash-flow", status_code=201)
+def create_forecast(p: schemas.ForecastCreate, user=Depends(get_current_user),
+                    org_id=Depends(get_current_org), db=Depends(get_db)):
+    txs = db.query(models.Transaction).filter_by(organization_id=org_id, status="posted").all()
+    fc_res = calculate_cash_flow_forecast(txs, horizon=p.horizon, period_unit=p.period_unit)
+
+    start_date = txs[0].transaction_date if txs else date.today()
+    end_date = txs[-1].transaction_date if txs else date.today()
+
+    run = models.ForecastRun(
+        organization_id=org_id,
+        target=p.target,
+        horizon=p.horizon,
+        period_unit=p.period_unit,
+        model_version=fc_res["model_version"],
+        baseline_model=fc_res["baseline_model"],
+        training_window_from=start_date,
+        training_window_to=end_date,
+        evaluation_metrics=fc_res["evaluation"],
+        predictions=fc_res["predictions"],
+        status=fc_res["status"]
+    )
+    db.add(run)
+    log_audit(db, org_id, user.id, "FORECAST_GENERATED", "forecast_runs", None, {"target": p.target, "horizon": p.horizon})
+    db.commit()
+    db.refresh(run)
+
+    fc_res["id"] = run.id
+    return fc_res
+
+@app.get("/api/v1/forecasts")
+def list_forecasts(org_id=Depends(get_current_org), db=Depends(get_db)):
+    runs = db.query(models.ForecastRun).filter_by(organization_id=org_id).order_by(models.ForecastRun.id.desc()).all()
+    return [{
+        "id": r.id, "target": r.target, "horizon": r.horizon,
+        "model_version": r.model_version, "status": r.status,
+        "evaluation": r.evaluation_metrics, "predictions": r.predictions,
+        "created_at": str(r.created_at)
+    } for r in runs]
+
+@app.get("/api/v1/forecasts/{forecast_id}")
+def get_forecast(forecast_id: int, org_id=Depends(get_current_org), db=Depends(get_db)):
+    r = db.query(models.ForecastRun).filter_by(id=forecast_id, organization_id=org_id).first()
+    if not r:
+        raise HTTPException(404, "Forecast tidak ditemukan")
+    return {
+        "id": r.id, "target": r.target, "horizon": r.horizon, "period_unit": r.period_unit,
+        "model_version": r.model_version, "baseline_model": r.baseline_model,
+        "status": r.status, "evaluation": r.evaluation_metrics, "predictions": r.predictions,
+        "created_at": str(r.created_at)
+    }
+
+# ==========================================
+# 10. RECOMMENDATIONS
+# ==========================================
+@app.get("/api/v1/recommendations")
+def recommendations(date_from: date = Query(alias="from"), date_to: date = Query(alias="to"),
+                    org_id=Depends(get_current_org), db=Depends(get_db)):
+    rows = db.query(models.Transaction).filter(
+        models.Transaction.organization_id == org_id,
+        models.Transaction.transaction_date >= date_from,
+        models.Transaction.transaction_date <= date_to).all()
+    res = generate_recommendations(rows, date_from, date_to)
+    # Persist recommendations to table if not existing
+    for rec in res["recommendations"]:
+        exists = db.query(models.Recommendation).filter_by(organization_id=org_id, rule_id=rec["rule_id"], title=rec["title"]).first()
+        if not exists:
+            db.add(models.Recommendation(
+                organization_id=org_id,
+                rule_id=rec["rule_id"],
+                rule_version=rec["rule_version"],
+                title=rec["title"],
+                priority=rec["priority"],
+                trigger_metrics=rec["trigger_metrics"],
+                evidence=rec["evidence"],
+                suggested_actions=rec["suggested_actions"],
+                assumptions=rec["assumptions"],
+                limitations=rec["limitations"],
+                status=rec["status"]
+            ))
+    db.commit()
+    # Read persisted recommendations with their IDs
+    db_recs = db.query(models.Recommendation).filter_by(organization_id=org_id).order_by(models.Recommendation.id.desc()).all()
+    res["recommendations"] = [{
+        "id": str(r.id), "rule_id": r.rule_id, "rule_version": r.rule_version,
+        "title": r.title, "priority": r.priority, "trigger_metrics": r.trigger_metrics,
+        "evidence": r.evidence, "suggested_actions": r.suggested_actions,
+        "assumptions": r.assumptions, "limitations": r.limitations,
+        "status": r.status, "user_feedback": r.user_feedback, "created_at": str(r.created_at)
+    } for r in db_recs]
+    return res
+
+@app.patch("/api/v1/recommendations/{rec_id}")
+def update_recommendation(rec_id: int, p: schemas.RecommendationUpdate, user=Depends(get_current_user),
+                          org_id=Depends(get_current_org), db=Depends(get_db)):
+    r = db.query(models.Recommendation).filter_by(id=rec_id, organization_id=org_id).first()
+    if not r:
+        raise HTTPException(404, "Rekomendasi tidak ditemukan")
+    r.status = p.status
+    if p.user_feedback is not None:
+        r.user_feedback = p.user_feedback
+    log_audit(db, org_id, user.id, "RECOMMENDATION_FEEDBACK", "recommendations", r.id, {"status": p.status})
+    db.commit(); db.refresh(r)
+    return {"id": r.id, "status": r.status, "user_feedback": r.user_feedback}
+
+# ==========================================
+# 11. IMPORT CSV BATCHES & ROWS
+# ==========================================
+@app.get("/api/v1/imports/batches")
+def list_import_batches(org_id=Depends(get_current_org), db=Depends(get_db)):
+    batches = db.query(models.ImportBatch).filter_by(organization_id=org_id).order_by(models.ImportBatch.id.desc()).all()
+    return [{
+        "id": b.id, "filename": b.filename, "source": b.source, "status": b.status,
+        "total_rows": b.total_rows, "valid_rows": b.valid_rows,
+        "duplicate_rows": b.duplicate_rows, "error_rows": b.error_rows,
+        "created_at": str(b.created_at)
+    } for b in batches]
+
+@app.get("/api/v1/imports/batches/{batch_id}")
+def get_import_batch(batch_id: int, org_id=Depends(get_current_org), db=Depends(get_db)):
+    b = db.query(models.ImportBatch).filter_by(id=batch_id, organization_id=org_id).first()
+    if not b:
+        raise HTTPException(404, "Import batch tidak ditemukan")
+    rows = db.query(models.ImportRow).filter_by(import_batch_id=b.id).limit(200).all()
+    return {
+        "id": b.id, "filename": b.filename, "status": b.status,
+        "total_rows": b.total_rows, "valid_rows": b.valid_rows,
+        "duplicate_rows": b.duplicate_rows, "error_rows": b.error_rows,
+        "rows": [{
+            "row_index": r.row_index, "status": r.status, "is_duplicate": r.is_duplicate,
+            "parsed_data": r.parsed_data, "error_message": r.error_message
+        } for r in rows]
+    }
+
 @app.post("/api/v1/imports/transactions/preview")
-async def preview_csv_import(file: UploadFile = File(...), org_id=Depends(get_current_org), db=Depends(get_db)):
+async def preview_csv_import(file: UploadFile = File(...), user=Depends(get_current_user),
+                             org_id=Depends(get_current_org), db=Depends(get_db)):
     if not file.filename.endswith(".csv"):
         raise HTTPException(400, "File harus berformat CSV")
 
@@ -299,11 +776,9 @@ async def preview_csv_import(file: UploadFile = File(...), org_id=Depends(get_cu
     if not required_cols.issubset(set(fieldnames)):
         raise HTTPException(422, f"Header CSV tidak lengkap. Wajib memiliki: {', '.join(required_cols)}")
 
-    # Category map for matching
     categories = db.query(models.Category).filter_by(organization_id=org_id).all()
     cat_map = {(c.name.lower(), c.tx_type): c.id for c in categories}
 
-    # Fetch existing transactions for duplicate detection
     existing_txs = db.query(models.Transaction.transaction_date, models.Transaction.description, models.Transaction.amount).filter_by(
         organization_id=org_id, status="posted"
     ).all()
@@ -312,7 +787,6 @@ async def preview_csv_import(file: UploadFile = File(...), org_id=Depends(get_cu
     parsed_rows = []
     errors = []
     duplicates_count = 0
-
     valid_types = {"income", "expense", "transfer", "owner_contribution", "owner_draw", "loan_received", "loan_repayment", "refund"}
 
     for idx, row in enumerate(reader, start=1):
@@ -323,14 +797,12 @@ async def preview_csv_import(file: UploadFile = File(...), org_id=Depends(get_cu
         tx_type = row_clean.get("type", "").lower()
         csv_cat = row_clean.get("category", "")
 
-        # Validate Date
         try:
             d = datetime.strptime(date_str, "%Y-%m-%d").date()
         except ValueError:
             errors.append({"row": idx, "field": "transaction_date", "message": f"Format tanggal '{date_str}' harus YYYY-MM-DD"})
             continue
 
-        # Validate Amount
         try:
             amt = Decimal(amt_str)
             if amt <= 0:
@@ -340,15 +812,11 @@ async def preview_csv_import(file: UploadFile = File(...), org_id=Depends(get_cu
             errors.append({"row": idx, "field": "amount", "message": f"Nominal '{amt_str}' tidak valid"})
             continue
 
-        # Validate Type
         if tx_type not in valid_types:
             errors.append({"row": idx, "field": "type", "message": f"Tipe '{tx_type}' tidak dikenali"})
             continue
 
-        # Match Category if possible
         matched_category_id = cat_map.get((csv_cat.lower(), tx_type))
-
-        # Check duplicate
         is_duplicate = (str(d), desc.lower(), money(amt)) in existing_set
         if is_duplicate:
             duplicates_count += 1
@@ -364,12 +832,37 @@ async def preview_csv_import(file: UploadFile = File(...), org_id=Depends(get_cu
             "is_duplicate": is_duplicate
         })
 
+    # Save to import_batches & import_rows
+    batch = models.ImportBatch(
+        organization_id=org_id,
+        filename=file.filename,
+        source="csv",
+        status="preview",
+        total_rows=len(parsed_rows) + len(errors),
+        valid_rows=len(parsed_rows),
+        duplicate_rows=duplicates_count,
+        error_rows=len(errors),
+        created_by=user.id
+    )
+    db.add(batch); db.flush()
+
+    for pr in parsed_rows:
+        db.add(models.ImportRow(
+            import_batch_id=batch.id,
+            row_index=pr["row_index"],
+            parsed_data=pr,
+            status="duplicate" if pr["is_duplicate"] else "valid",
+            is_duplicate=pr["is_duplicate"]
+        ))
+    db.commit()
+
     return {
+        "batch_id": batch.id,
         "filename": file.filename,
-        "total_rows": len(parsed_rows) + len(errors),
-        "valid_count": len(parsed_rows),
-        "duplicate_count": duplicates_count,
-        "error_count": len(errors),
+        "total_rows": batch.total_rows,
+        "valid_count": batch.valid_rows,
+        "duplicate_count": batch.duplicate_rows,
+        "error_count": batch.error_rows,
         "rows": parsed_rows,
         "errors": errors
     }
@@ -389,11 +882,33 @@ def confirm_csv_import(p: schemas.ImportConfirmIn, user=Depends(get_current_user
             amount=item.amount,
             tx_type=item.tx_type,
             category_id=item.category_id,
+            account_id=item.account_id,
             status="posted",
             created_by=user.id
         )
         db.add(t)
         count += 1
 
+    log_audit(db, org_id, user.id, "CSV_IMPORT_CONFIRMED", "transactions", None, {"count": count})
     db.commit()
     return {"imported_count": count, "message": f"Berhasil mengimpor {count} transaksi"}
+
+# ==========================================
+# 12. AUDIT EVENTS
+# ==========================================
+@app.get("/api/v1/audit-events")
+def list_audit_events(limit: int = 50, offset: int = 0,
+                      org_id=Depends(get_current_org), db=Depends(get_db)):
+    q = db.query(models.AuditEvent).filter_by(organization_id=org_id).order_by(models.AuditEvent.id.desc())
+    total = q.count()
+    rows = q.limit(limit).offset(offset).all()
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "items": [{
+            "id": ev.id, "user_id": ev.user_id, "action": ev.action,
+            "entity_type": ev.entity_type, "entity_id": ev.entity_id,
+            "payload": ev.payload, "created_at": str(ev.created_at)
+        } for ev in rows]
+    }

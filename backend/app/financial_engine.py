@@ -442,3 +442,79 @@ def generate_recommendations(transactions, period_from, period_to):
         "period": period,
         "generated_at": now_iso
     }
+
+def calculate_cash_flow_forecast(transactions, horizon=3, period_unit="month"):
+    now_iso = datetime.now(timezone.utc).isoformat()
+    monthly_flows = defaultdict(lambda: ZERO)
+    for tx in transactions:
+        if tx.status != "posted":
+            continue
+        sign = Decimal(-1) if tx.reversal_of_id else Decimal(1)
+        month_key = tx.transaction_date.strftime("%Y-%m")
+        if tx.tx_type in ("income", "loan_received", "owner_contribution"):
+            monthly_flows[month_key] += sign * tx.amount
+        elif tx.tx_type in ("expense", "refund", "loan_repayment", "owner_draw"):
+            monthly_flows[month_key] -= sign * tx.amount
+
+    sorted_months = sorted(monthly_flows.keys())
+
+    if len(sorted_months) < 2:
+        return {
+            "target": "cash_flow",
+            "horizon": horizon,
+            "period_unit": period_unit,
+            "status": "evaluating",
+            "model_version": "baseline-ma-v1",
+            "baseline_model": "3-month moving average",
+            "training_window": {
+                "from": sorted_months[0] if sorted_months else "",
+                "to": sorted_months[-1] if sorted_months else ""
+            },
+            "created_at": now_iso,
+            "limitations": ["Data historis kurang dari 2 periode; evaluasi model ditangguhkan sesuai METODOLOGI."],
+            "predictions": [],
+            "evaluation": {}
+        }
+
+    recent_vals = [monthly_flows[m] for m in sorted_months[-3:]]
+    avg_flow = sum(recent_vals) / Decimal(len(recent_vals))
+
+    diffs = [abs(monthly_flows[sorted_months[i]] - monthly_flows[sorted_months[i-1]]) for i in range(1, len(sorted_months))]
+    mae = float(sum(diffs) / Decimal(len(diffs))) if diffs else 0.0
+
+    predictions = []
+    last_year, last_month = map(int, sorted_months[-1].split("-"))
+    for step in range(1, horizon + 1):
+        m_next = last_month + step
+        y_next = last_year + (m_next - 1) // 12
+        m_norm = ((m_next - 1) % 12) + 1
+        period_label = f"{y_next:04d}-{m_norm:02d}"
+        predictions.append({
+            "period": period_label,
+            "predicted_value": money(avg_flow),
+            "lower_bound": money(avg_flow * Decimal("0.85")),
+            "upper_bound": money(avg_flow * Decimal("1.15"))
+        })
+
+    return {
+        "target": "cash_flow",
+        "horizon": horizon,
+        "period_unit": period_unit,
+        "status": "available",
+        "model_version": "baseline-ma-v1",
+        "baseline_model": "3-month moving average",
+        "training_window": {
+            "from": sorted_months[0],
+            "to": sorted_months[-1]
+        },
+        "created_at": now_iso,
+        "limitations": [
+            "Estimasi berbasis Moving Average deterministik; belum memperhitungkan variasi musiman jangka panjang",
+            "Forecast hanya memproyeksikan arus kas bersih dari transaksi tercatat"
+        ],
+        "predictions": predictions,
+        "evaluation": {
+            "mae": round(mae, 2)
+        }
+    }
+
