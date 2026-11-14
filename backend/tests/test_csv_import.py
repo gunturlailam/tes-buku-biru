@@ -16,20 +16,13 @@ def test_csv_import_preview_and_confirm(client, org_a_setup):
     assert prev_data["error_count"] == 0
     assert len(prev_data["rows"]) == 2
 
-    # 2. Confirm
-    confirm_payload = {
-        "transactions": [
-            {
-                "transaction_date": r["transaction_date"],
-                "description": r["description"],
-                "amount": r["amount"],
-                "tx_type": r["tx_type"],
-                "category_id": r["category_id"]
-            }
-            for r in prev_data["rows"]
-        ]
-    }
-    resp_conf = client.post("/api/v1/imports/transactions/confirm", headers=headers, json=confirm_payload)
+    # 2. Confirm — kirim batch_id dari hasil preview
+    batch_id = prev_data["batch_id"]
+    resp_conf = client.post(
+        "/api/v1/imports/transactions/confirm",
+        headers=headers,
+        json={"batch_id": batch_id}
+    )
     assert resp_conf.status_code == 201
     assert resp_conf.json()["imported_count"] == 2
 
