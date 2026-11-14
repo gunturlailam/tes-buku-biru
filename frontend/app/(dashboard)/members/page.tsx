@@ -137,8 +137,17 @@ export default function MembersPage() {
 
       {/* Alert */}
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl">
-          {error}
+        <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+          <p className="text-sm font-semibold text-red-700">{error}</p>
+          {error.includes("belum terdaftar") && (
+            <p className="text-xs text-red-500 mt-1">
+              Minta anggota tersebut untuk register di{" "}
+              <a href="/register" target="_blank" className="underline font-semibold hover:text-red-700">
+                halaman daftar
+              </a>{" "}
+              terlebih dahulu, lalu coba tambahkan kembali.
+            </p>
+          )}
         </div>
       )}
       {success && (
@@ -150,9 +159,15 @@ export default function MembersPage() {
       {/* Add form */}
       {showAdd && (
         <div className="bg-white border border-[#e5e5e5] rounded-2xl p-5 shadow-sm">
-          <h2 className="text-sm font-bold text-[#1f1f1f] mb-4 flex items-center gap-2">
+          <h2 className="text-sm font-bold text-[#1f1f1f] mb-1 flex items-center gap-2">
             <UserPlus className="w-4 h-4" /> Tambah Anggota Baru
           </h2>
+          <p className="text-xs text-[#999999] mb-4">
+            Anggota harus sudah memiliki akun ProfitAI terlebih dahulu.{" "}
+            <a href="/register" target="_blank" className="text-[#ffc900] font-semibold underline hover:text-[#f0bd00]">
+              Daftar di sini →
+            </a>
+          </p>
           <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-3">
             <input
               type="email"
