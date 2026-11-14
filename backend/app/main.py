@@ -26,8 +26,15 @@ from . import ratio_narrative
 from .ratio_engine import RATIO_META
 
 app = FastAPI(title="ProfitAI API", version="0.1.0")
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"],
-                   allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware,
+                   allow_origins=[
+                       "http://localhost:3000",
+                       "http://localhost:3001",
+                       "https://b3c9-114-10-94-138.ngrok-free.app",
+                   ],
+                   allow_credentials=True,
+                   allow_methods=["*"],
+                   allow_headers=["*"])
 
 @app.on_event("startup")
 def startup():

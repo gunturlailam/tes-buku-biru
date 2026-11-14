@@ -9,8 +9,10 @@ export const apiClient: AxiosInstance = axios.create({
   timeout: 30000,
   headers: {
     "Content-Type": "application/json",
+    // Skip ngrok browser warning interstitial page
+    "ngrok-skip-browser-warning": "true",
   },
-  withCredentials: false, // Changed to false for network backend
+  withCredentials: false,
 });
 
 apiClient.interceptors.request.use(
