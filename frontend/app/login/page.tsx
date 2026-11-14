@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Alert } from "@/components/ui/Alert";
@@ -41,33 +42,14 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // Call real backend API
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1"}/auth/login`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: formData.email,
-            password: formData.password,
-          }),
-        }
-      );
+      // Use axios apiClient instead of fetch for better error handling
+      const { data } = await apiClient.post("/auth/login", {
+        email: formData.email,
+        password: formData.password,
+      });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(
-          data.error?.message || "Email atau password salah"
-        );
-        setIsLoading(false);
-        return;
-      }
-
-      // Save token to localStorage
-      if (data.access_token) {
+      if (data && data.access_token) {
+        // Save token to localStorage
         localStorage.setItem("auth_token", data.access_token);
         localStorage.setItem("token_type", data.token_type || "bearer");
         
@@ -84,11 +66,14 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error("Login error:", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Gagal terhubung ke server. Pastikan backend berjalan."
-      );
+      
+      let errorMessage = "Gagal terhubung ke server";
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       setIsLoading(false);
     }
   };
