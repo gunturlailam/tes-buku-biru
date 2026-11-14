@@ -11,6 +11,7 @@ class User(Base):
     email = Column(Text, unique=True, nullable=False)
     password_hash = Column(Text, nullable=False)
     full_name = Column(Text, nullable=False)
+    is_superadmin = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 # 2. organizations: business workspace

@@ -8,7 +8,7 @@ import { Alert } from "@/components/ui/Alert";
 import Link from "next/link";
 import { Eye, EyeOff, ArrowRight } from "lucide-react";
 import { authApi } from "@/features/auth/api/auth-api";
-import { saveAccessToken, saveOrgId, getAccessToken } from "@/lib/auth";
+import { saveAccessToken, saveOrgId, saveOrganizations, getAccessToken } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/api-client";
 import Image from "next/image";
 
@@ -75,12 +75,15 @@ export default function LoginPage() {
 
     setIsLoading(true);
     try {
-      const { access_token, organization_id } = await authApi.login({
+      const { access_token, organization_id, organizations } = await authApi.login({
         email: formData.email,
         password: formData.password,
       });
       saveAccessToken(access_token, formData.remember);
       if (organization_id) saveOrgId(organization_id, formData.remember);
+      if (organizations && organizations.length > 0) {
+        saveOrganizations(organizations, formData.remember);
+      }
       router.replace("/dashboard");
       
       // Safety: reset loading after 3 seconds if redirect hasn't happened

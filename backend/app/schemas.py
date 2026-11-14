@@ -246,3 +246,6 @@ class ForecastBacktestCreate(BaseModel):
     horizon: int = Field(default=3, ge=1, le=12)
     period_unit: Literal["day", "week", "month"] = "month"
     min_train_periods: int = Field(default=3, ge=2, le=24)
+
+class SuperAdminToggle(BaseModel):
+    is_superadmin: bool

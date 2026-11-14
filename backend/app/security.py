@@ -32,6 +32,10 @@ def get_current_user(creds=Depends(bearer), db=Depends(get_db)):
             raise HTTPException(401, "Token sudah kedaluwarsa, silakan login ulang")
     return db.get(models.User, sess.user_id)
 
+def require_superadmin(user):
+    if not getattr(user, 'is_superadmin', False):
+        raise HTTPException(403, "Akses hanya untuk Super Admin")
+
 def get_current_org(request: Request, user=Depends(get_current_user), db=Depends(get_db)):
     org_id_header = request.headers.get("X-Organization-ID")
     if org_id_header:

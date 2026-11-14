@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from .db import engine, get_db, Base
 from . import models, schemas
-from .security import hash_password, verify_password, get_current_user, get_current_org, bearer
+from .security import hash_password, verify_password, get_current_user, get_current_org, bearer, require_superadmin
 from .financial_engine import (
     summarize,
     calculate_profit_loss,
@@ -155,13 +155,37 @@ def login(p: schemas.LoginIn, request: Request, db=Depends(get_db)):
                           expires_at=datetime.now(timezone.utc) + timedelta(days=7)))
     log_audit(db, None, user.id, "USER_LOGGED_IN", "sessions", None, {"email": user.email})
     db.commit()
-    # Ambil org_id milik user ini (bukan org lain)
-    membership = (db.query(models.Membership)
-                  .filter_by(user_id=user.id)
-                  .order_by(models.Membership.organization_id)
-                  .first())
-    organization_id = membership.organization_id if membership else None
-    return {"access_token": token, "token_type": "bearer", "organization_id": organization_id}
+
+    # Ambil semua org user beserta role-nya
+    memberships = (db.query(models.Membership)
+                   .filter_by(user_id=user.id)
+                   .order_by(models.Membership.organization_id)
+                   .all())
+    organizations = []
+    for m in memberships:
+        org = db.query(models.Organization).filter_by(id=m.organization_id).first()
+        if org:
+            organizations.append({
+                "organization_id": org.id,
+                "organization_name": org.name,
+                "role": m.role,
+            })
+
+    # Default: org pertama yang di-join (bukan org sendiri jika ada org lain)
+    # Prioritaskan org yang bukan milik sendiri (diinvite) jika ada
+    default_org = organizations[0] if organizations else None
+    if len(organizations) > 1:
+        # Cari org di mana user bukan owner (artinya diinvite)
+        invited = [o for o in organizations if o["role"] != "owner"]
+        if invited:
+            default_org = invited[0]
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "organization_id": default_org["organization_id"] if default_org else None,
+        "organizations": organizations,
+    }
 
 @app.post("/api/v1/auth/logout")
 def logout(creds=Depends(bearer), db=Depends(get_db)):
@@ -175,12 +199,25 @@ def logout(creds=Depends(bearer), db=Depends(get_db)):
 @app.get("/api/v1/me")
 def me(user=Depends(get_current_user), org_id=Depends(get_current_org), db=Depends(get_db)):
     m = db.query(models.Membership).filter_by(organization_id=org_id, user_id=user.id).first()
+    # Semua org user
+    all_memberships = db.query(models.Membership).filter_by(user_id=user.id).all()
+    organizations = []
+    for mem in all_memberships:
+        org = db.query(models.Organization).filter_by(id=mem.organization_id).first()
+        if org:
+            organizations.append({
+                "organization_id": org.id,
+                "organization_name": org.name,
+                "role": mem.role,
+            })
     return {
         "id": user.id,
         "email": user.email,
         "full_name": user.full_name,
+        "is_superadmin": user.is_superadmin,
         "organization_id": org_id,
-        "role": m.role if m else "viewer"
+        "role": m.role if m else "viewer",
+        "organizations": organizations,
     }
 
 # ==========================================
@@ -2260,6 +2297,83 @@ def confirm_csv_import(p: schemas.ImportConfirmIn, user=Depends(get_current_user
         "skipped_count": skipped,
         "message": f"Berhasil mengimpor {count} transaksi; {skipped} baris dilewati.",
     }
+
+# ==========================================
+# SUPER ADMIN
+# ==========================================
+
+@app.get("/api/v1/admin/organizations")
+def admin_list_organizations(
+    limit: int = Query(50, le=200),
+    offset: int = 0,
+    user=Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """Daftar semua organisasi beserta owner. Hanya Super Admin."""
+    require_superadmin(user)
+    orgs = db.query(models.Organization).order_by(models.Organization.id.desc()).offset(offset).limit(limit).all()
+    result = []
+    for org in orgs:
+        profile = db.query(models.BusinessProfile).filter_by(organization_id=org.id).first()
+        owner_m = db.query(models.Membership).filter_by(organization_id=org.id, role="owner").first()
+        owner = db.query(models.User).filter_by(id=owner_m.user_id).first() if owner_m else None
+        member_count = db.query(models.Membership).filter_by(organization_id=org.id).count()
+        tx_count = db.query(models.Transaction).filter_by(organization_id=org.id).count()
+        result.append({
+            "id": org.id,
+            "name": org.name,
+            "industry": profile.industry if profile else None,
+            "currency": profile.currency if profile else "IDR",
+            "owner_name": owner.full_name if owner else None,
+            "owner_email": owner.email if owner else None,
+            "member_count": member_count,
+            "transaction_count": tx_count,
+            "created_at": str(org.created_at),
+        })
+    total = db.query(models.Organization).count()
+    return {"total": total, "limit": limit, "offset": offset, "items": result}
+
+@app.get("/api/v1/admin/users")
+def admin_list_users(
+    limit: int = Query(50, le=200),
+    offset: int = 0,
+    user=Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """Daftar semua user. Hanya Super Admin."""
+    require_superadmin(user)
+    users = db.query(models.User).order_by(models.User.id.desc()).offset(offset).limit(limit).all()
+    result = []
+    for u in users:
+        memberships = db.query(models.Membership).filter_by(user_id=u.id).all()
+        result.append({
+            "id": u.id,
+            "email": u.email,
+            "full_name": u.full_name,
+            "is_superadmin": u.is_superadmin,
+            "organization_count": len(memberships),
+            "created_at": str(u.created_at),
+        })
+    total = db.query(models.User).count()
+    return {"total": total, "limit": limit, "offset": offset, "items": result}
+
+@app.patch("/api/v1/admin/users/{user_id}/superadmin")
+def admin_toggle_superadmin(
+    user_id: int,
+    p: schemas.SuperAdminToggle,
+    user=Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """Toggle is_superadmin. Hanya Super Admin yang sudah ada."""
+    require_superadmin(user)
+    target = db.query(models.User).filter_by(id=user_id).first()
+    if not target:
+        raise HTTPException(404, "User tidak ditemukan")
+    if target.id == user.id:
+        raise HTTPException(400, "Tidak dapat mengubah status superadmin diri sendiri")
+    target.is_superadmin = p.is_superadmin
+    db.commit()
+    return {"user_id": target.id, "email": target.email, "is_superadmin": target.is_superadmin}
 
 # ==========================================
 # 12. AUDIT EVENTS

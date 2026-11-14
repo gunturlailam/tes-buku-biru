@@ -15,6 +15,11 @@ export interface LoginResponse {
   access_token: string;
   token_type: "bearer";
   organization_id?: number;
+  organizations?: Array<{
+    organization_id: number;
+    organization_name: string;
+    role: string;
+  }>;
 }
 
 export interface CurrentUser {
@@ -23,6 +28,12 @@ export interface CurrentUser {
   full_name: string;
   organization_id: number;
   role: string;
+  is_superadmin?: boolean;
+  organizations?: Array<{
+    organization_id: number;
+    organization_name: string;
+    role: string;
+  }>;
 }
 
 export const authApi = {
