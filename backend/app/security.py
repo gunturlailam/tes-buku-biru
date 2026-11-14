@@ -48,10 +48,18 @@ def get_current_org(request: Request, user=Depends(get_current_user), db=Depends
         ).first()
         if not m:
             raise HTTPException(403, "Anda bukan anggota organisasi tersebut")
+        # Cek apakah org masih aktif (kecuali superadmin)
+        org = db.query(models.Organization).filter_by(id=requested_org_id).first()
+        if org and not org.is_active and not getattr(user, 'is_superadmin', False):
+            raise HTTPException(403, "Organisasi ini telah dinonaktifkan. Hubungi administrator.")
         return requested_org_id
     # Fallback: ambil org pertama (untuk backward compatibility)
     m = (db.query(models.Membership).filter_by(user_id=user.id)
          .order_by(models.Membership.organization_id).first())
     if m is None:
         raise HTTPException(403, "User tidak memiliki organisasi")
+    # Cek apakah org masih aktif (kecuali superadmin)
+    org = db.query(models.Organization).filter_by(id=m.organization_id).first()
+    if org and not org.is_active and not getattr(user, 'is_superadmin', False):
+        raise HTTPException(403, "Organisasi ini telah dinonaktifkan. Hubungi administrator.")
     return m.organization_id

@@ -644,6 +644,18 @@ def update_opening_balance(ob_id: int, p: schemas.OpeningBalanceUpdate, user=Dep
     db.commit(); db.refresh(ob)
     return {"id": ob.id, "account_id": ob.account_id, "amount": money(ob.amount), "effective_date": str(ob.effective_date)}
 
+@app.delete("/api/v1/opening-balances/{ob_id}", status_code=204)
+def delete_opening_balance(ob_id: int, user=Depends(get_current_user),
+                           org_id=Depends(get_current_org), db=Depends(get_db)):
+    require_org_role(db, org_id, user)
+    ob = db.query(models.OpeningBalance).filter_by(id=ob_id, organization_id=org_id).first()
+    if not ob:
+        raise HTTPException(404, "Saldo awal tidak ditemukan")
+    db.delete(ob)
+    log_audit(db, org_id, user.id, "OPENING_BALANCE_DELETED", "opening_balances", ob_id)
+    db.commit()
+    return None
+
 # ==========================================
 # 7. FINANCIAL REPORTS & CALCULATION RUNS
 # ==========================================
@@ -2306,12 +2318,16 @@ def confirm_csv_import(p: schemas.ImportConfirmIn, user=Depends(get_current_user
 def admin_list_organizations(
     limit: int = Query(50, le=200),
     offset: int = 0,
+    include_suspended: bool = Query(True),
     user=Depends(get_current_user),
     db=Depends(get_db)
 ):
     """Daftar semua organisasi beserta owner. Hanya Super Admin."""
     require_superadmin(user)
-    orgs = db.query(models.Organization).order_by(models.Organization.id.desc()).offset(offset).limit(limit).all()
+    q = db.query(models.Organization).order_by(models.Organization.id.desc())
+    if not include_suspended:
+        q = q.filter_by(is_active=True)
+    orgs = q.offset(offset).limit(limit).all()
     result = []
     for org in orgs:
         profile = db.query(models.BusinessProfile).filter_by(organization_id=org.id).first()
@@ -2328,10 +2344,35 @@ def admin_list_organizations(
             "owner_email": owner.email if owner else None,
             "member_count": member_count,
             "transaction_count": tx_count,
+            "is_active": org.is_active,
+            "suspended_reason": org.suspended_reason,
             "created_at": str(org.created_at),
         })
-    total = db.query(models.Organization).count()
+    total_q = db.query(models.Organization)
+    if not include_suspended:
+        total_q = total_q.filter_by(is_active=True)
+    total = total_q.count()
     return {"total": total, "limit": limit, "offset": offset, "items": result}
+
+@app.patch("/api/v1/admin/organizations/{org_id}/suspend")
+def admin_suspend_org(org_id: int, p: schemas.OrgSuspendToggle,
+                      user=Depends(get_current_user), db=Depends(get_db)):
+    """Suspend atau aktifkan organisasi. Hanya Super Admin."""
+    require_superadmin(user)
+    org = db.query(models.Organization).filter_by(id=org_id).first()
+    if not org:
+        raise HTTPException(404, "Organisasi tidak ditemukan")
+    org.is_active = not p.suspend
+    org.suspended_at = datetime.now(timezone.utc) if p.suspend else None
+    org.suspended_reason = p.reason if p.suspend else None
+    db.commit()
+    return {
+        "id": org.id,
+        "name": org.name,
+        "is_active": org.is_active,
+        "suspended_at": str(org.suspended_at) if org.suspended_at else None,
+        "suspended_reason": org.suspended_reason,
+    }
 
 @app.get("/api/v1/admin/users")
 def admin_list_users(
@@ -2356,6 +2397,31 @@ def admin_list_users(
         })
     total = db.query(models.User).count()
     return {"total": total, "limit": limit, "offset": offset, "items": result}
+
+@app.get("/api/v1/admin/stats")
+def admin_stats(user=Depends(get_current_user), db=Depends(get_db)):
+    """Statistik global platform. Hanya Super Admin."""
+    require_superadmin(user)
+    from sqlalchemy import func as sqlfunc
+    total_orgs = db.query(models.Organization).count()
+    total_users = db.query(models.User).count()
+    total_transactions = db.query(models.Transaction).filter_by(status="posted").count()
+    total_imports = db.query(models.ImportBatch).filter_by(status="confirmed").count()
+    new_orgs_today = db.query(models.Organization).filter(
+        sqlfunc.date(models.Organization.created_at) == date.today()
+    ).count()
+    new_users_today = db.query(models.User).filter(
+        sqlfunc.date(models.User.created_at) == date.today()
+    ).count()
+    return {
+        "total_organizations": total_orgs,
+        "total_users": total_users,
+        "total_posted_transactions": total_transactions,
+        "total_confirmed_imports": total_imports,
+        "new_organizations_today": new_orgs_today,
+        "new_users_today": new_users_today,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 @app.patch("/api/v1/admin/users/{user_id}/superadmin")
 def admin_toggle_superadmin(

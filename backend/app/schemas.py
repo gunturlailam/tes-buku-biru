@@ -249,3 +249,7 @@ class ForecastBacktestCreate(BaseModel):
 
 class SuperAdminToggle(BaseModel):
     is_superadmin: bool
+
+class OrgSuspendToggle(BaseModel):
+    suspend: bool
+    reason: Optional[str] = None

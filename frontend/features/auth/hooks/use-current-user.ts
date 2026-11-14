@@ -13,7 +13,9 @@ export function useCurrentUser() {
     queryKey: ["current-user"],
     queryFn: () => authApi.getCurrentUser() as Promise<CurrentUserWithRole>,
     enabled: Boolean(getAccessToken()),
-    staleTime: 1000 * 60 * 5, // 5 menit
+    staleTime: 0,           // selalu fetch fresh
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
     retry: false,
   });
 }
