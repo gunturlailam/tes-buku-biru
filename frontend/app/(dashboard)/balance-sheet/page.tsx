@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -188,7 +188,7 @@ export default function BalanceSheetPage() {
     },
     onSuccess: async (period) => {
       setSuccess(
-        `Periode ${formatDate(period.period_from)} – ${formatDate(period.period_to)} dibuat.`,
+        `Periode ${formatDate(period.period_from)} ΓÇô ${formatDate(period.period_to)} dibuat.`,
       );
       await queryClient.invalidateQueries({ queryKey: ["accounting-periods"] });
     },
@@ -212,7 +212,7 @@ export default function BalanceSheetPage() {
     },
     onSuccess: async (period) => {
       setSuccess(
-        `Periode ${formatDate(period.period_from)} – ${formatDate(period.period_to)} ${
+        `Periode ${formatDate(period.period_from)} ΓÇô ${formatDate(period.period_to)} ${
           period.status === "closed" ? "ditutup" : "dibuka kembali"
         }.`,
       );
@@ -420,7 +420,7 @@ export default function BalanceSheetPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-[#7E8379]">
                 {snapshot
-                  ? `Snapshot tersimpan #${snapshot.id} · ${snapshot.status}`
+                  ? `Snapshot tersimpan #${snapshot.id} ┬╖ ${snapshot.status}`
                   : "Belum ada snapshot pada tanggal ini."}
               </p>
               <div className="flex gap-2">
@@ -601,7 +601,7 @@ export default function BalanceSheetPage() {
                   >
                     <div>
                       <p className="text-sm font-medium text-[#1F241D]">
-                        {formatDate(period.period_from)} – {formatDate(period.period_to)}
+                        {formatDate(period.period_from)} ΓÇô {formatDate(period.period_to)}
                       </p>
                       <Badge variant={period.status === "closed" ? "success" : "info"}>
                         {period.status === "closed" ? "ditutup" : "terbuka"}

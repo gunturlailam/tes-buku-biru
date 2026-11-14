@@ -1,4 +1,4 @@
-import csv, hashlib, io, os, secrets, time, uuid
+﻿import csv, hashlib, io, os, secrets, time, uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timezone, timedelta
@@ -290,6 +290,7 @@ def list_members(target_org_id: int, org_id=Depends(get_current_org), db=Depends
 @app.post("/api/v1/organizations/{target_org_id}/members", status_code=201)
 def add_member(target_org_id: int, p: schemas.MemberAdd,
                user=Depends(get_current_user), org_id=Depends(get_current_org), db=Depends(get_db)):
+    require_org_role(db, org_id, user, allowed=("owner",))
     if target_org_id != org_id:
         raise HTTPException(403, "Akses ke organisasi lain ditolak")
     target_user = db.query(models.User).filter_by(email=p.email.strip().lower()).first()
@@ -307,6 +308,7 @@ def add_member(target_org_id: int, p: schemas.MemberAdd,
 @app.patch("/api/v1/organizations/{target_org_id}/members/{target_user_id}")
 def update_member_role(target_org_id: int, target_user_id: int, p: schemas.MemberRoleUpdate,
                        user=Depends(get_current_user), org_id=Depends(get_current_org), db=Depends(get_db)):
+    require_org_role(db, org_id, user, allowed=("owner",))
     if target_org_id != org_id:
         raise HTTPException(403, "Akses ke organisasi lain ditolak")
     m = db.query(models.Membership).filter_by(organization_id=org_id, user_id=target_user_id).first()
@@ -320,6 +322,7 @@ def update_member_role(target_org_id: int, target_user_id: int, p: schemas.Membe
 @app.delete("/api/v1/organizations/{target_org_id}/members/{target_user_id}")
 def remove_member(target_org_id: int, target_user_id: int,
                   user=Depends(get_current_user), org_id=Depends(get_current_org), db=Depends(get_db)):
+    require_org_role(db, org_id, user, allowed=("owner",))
     if target_org_id != org_id:
         raise HTTPException(403, "Akses ke organisasi lain ditolak")
     m = db.query(models.Membership).filter_by(organization_id=org_id, user_id=target_user_id).first()
@@ -345,6 +348,7 @@ def list_accounts(org_id=Depends(get_current_org), db=Depends(get_db)):
 @app.post("/api/v1/accounts", status_code=201)
 def create_account(p: schemas.AccountCreate, user=Depends(get_current_user),
                    org_id=Depends(get_current_org), db=Depends(get_db)):
+    require_org_role(db, org_id, user)
     if db.query(models.Account).filter_by(organization_id=org_id, code=p.code).first():
         raise HTTPException(409, f"Akun dengan kode '{p.code}' sudah ada")
     a = models.Account(organization_id=org_id, **p.model_dump())
@@ -362,6 +366,7 @@ def get_account(account_id: int, org_id=Depends(get_current_org), db=Depends(get
 @app.patch("/api/v1/accounts/{account_id}")
 def update_account(account_id: int, p: schemas.AccountUpdate, user=Depends(get_current_user),
                    org_id=Depends(get_current_org), db=Depends(get_db)):
+    require_org_role(db, org_id, user)
     a = db.query(models.Account).filter_by(id=account_id, organization_id=org_id).first()
     if not a:
         raise HTTPException(404, "Akun tidak ditemukan")
@@ -376,6 +381,7 @@ def update_account(account_id: int, p: schemas.AccountUpdate, user=Depends(get_c
 @app.delete("/api/v1/accounts/{account_id}")
 def delete_account(account_id: int, user=Depends(get_current_user),
                    org_id=Depends(get_current_org), db=Depends(get_db)):
+    require_org_role(db, org_id, user)
     a = db.query(models.Account).filter_by(id=account_id, organization_id=org_id).first()
     if not a:
         raise HTTPException(404, "Akun tidak ditemukan")
@@ -395,6 +401,7 @@ def categories(org_id=Depends(get_current_org), db=Depends(get_db)):
 @app.post("/api/v1/categories", status_code=201)
 def create_category(p: schemas.CategoryCreate, user=Depends(get_current_user),
                     org_id=Depends(get_current_org), db=Depends(get_db)):
+    require_org_role(db, org_id, user)
     if db.query(models.Category).filter_by(organization_id=org_id, name=p.name, tx_type=p.tx_type).first():
         raise HTTPException(409, "Kategori dengan nama dan tipe tersebut sudah ada")
     c = models.Category(organization_id=org_id, **p.model_dump())
@@ -405,6 +412,7 @@ def create_category(p: schemas.CategoryCreate, user=Depends(get_current_user),
 @app.patch("/api/v1/categories/{cat_id}")
 def update_category(cat_id: int, p: schemas.CategoryUpdate, user=Depends(get_current_user),
                     org_id=Depends(get_current_org), db=Depends(get_db)):
+    require_org_role(db, org_id, user)
     c = db.query(models.Category).filter_by(id=cat_id, organization_id=org_id).first()
     if not c:
         raise HTTPException(404, "Kategori tidak ditemukan")
@@ -418,6 +426,7 @@ def update_category(cat_id: int, p: schemas.CategoryUpdate, user=Depends(get_cur
 @app.delete("/api/v1/categories/{cat_id}")
 def delete_category(cat_id: int, user=Depends(get_current_user),
                     org_id=Depends(get_current_org), db=Depends(get_db)):
+    require_org_role(db, org_id, user)
     c = db.query(models.Category).filter_by(id=cat_id, organization_id=org_id).first()
     if not c:
         raise HTTPException(404, "Kategori tidak ditemukan")
@@ -441,6 +450,7 @@ def tx_dict(t):
 @app.post("/api/v1/transactions", status_code=201)
 def create_tx(p: schemas.TransactionIn, user=Depends(get_current_user),
               org_id=Depends(get_current_org), db=Depends(get_db)):
+    require_org_role(db, org_id, user, allowed=("owner", "admin", "member"))
     if p.category_id is not None:
         cat = db.query(models.Category).filter_by(id=p.category_id, organization_id=org_id).first()
         if not cat:
@@ -497,6 +507,7 @@ def get_tx(tx_id: int, org_id=Depends(get_current_org), db=Depends(get_db)):
 @app.patch("/api/v1/transactions/{tx_id}")
 def update_tx(tx_id: int, p: schemas.TransactionUpdate,
               user=Depends(get_current_user), org_id=Depends(get_current_org), db=Depends(get_db)):
+    require_org_role(db, org_id, user, allowed=("owner", "admin", "member"))
     t = db.query(models.Transaction).filter_by(id=tx_id, organization_id=org_id).first()
     if not t:
         raise HTTPException(404, "Transaksi tidak ditemukan")
@@ -527,6 +538,7 @@ def update_tx(tx_id: int, p: schemas.TransactionUpdate,
 @app.post("/api/v1/transactions/{tx_id}/reverse", status_code=201)
 def reverse_tx(tx_id: int, user=Depends(get_current_user),
                org_id=Depends(get_current_org), db=Depends(get_db)):
+    require_org_role(db, org_id, user)
     t = db.query(models.Transaction).filter_by(id=tx_id, organization_id=org_id).first()
     if not t:
         raise HTTPException(404, "Transaksi tidak ditemukan")
@@ -568,6 +580,7 @@ def list_opening_balances(org_id=Depends(get_current_org), db=Depends(get_db)):
 @app.post("/api/v1/opening-balances", status_code=201)
 def create_opening_balance(p: schemas.OpeningBalanceCreate, user=Depends(get_current_user),
                            org_id=Depends(get_current_org), db=Depends(get_db)):
+    require_org_role(db, org_id, user)
     acc = db.query(models.Account).filter_by(id=p.account_id, organization_id=org_id).first()
     if not acc:
         raise HTTPException(404, "Akun tidak ditemukan di organisasimu")
@@ -579,6 +592,7 @@ def create_opening_balance(p: schemas.OpeningBalanceCreate, user=Depends(get_cur
 @app.patch("/api/v1/opening-balances/{ob_id}")
 def update_opening_balance(ob_id: int, p: schemas.OpeningBalanceUpdate, user=Depends(get_current_user),
                            org_id=Depends(get_current_org), db=Depends(get_db)):
+    require_org_role(db, org_id, user)
     ob = db.query(models.OpeningBalance).filter_by(id=ob_id, organization_id=org_id).first()
     if not ob:
         raise HTTPException(404, "Saldo awal tidak ditemukan")
@@ -1824,7 +1838,7 @@ def run_forecast_backtest(p: schemas.ForecastBacktestCreate, user=Depends(get_cu
     - Metrik: MAE, WAPE, sMAPE, Bias, MASE.
     - Gate check: model harus beat naive baseline; bias harus acceptable.
     - Hasil disimpan ke tabel forecast_backtests untuk audit trail.
-    - Sesuai FINANCIAL_AI_METHODOLOGY.md §7: gunakan rolling-origin, bukan random shuffle.
+    - Sesuai FINANCIAL_AI_METHODOLOGY.md Â§7: gunakan rolling-origin, bukan random shuffle.
     """
     txs = db.query(models.Transaction).filter_by(
         organization_id=org_id, status="posted"
@@ -1935,8 +1949,8 @@ def explain_recommendation(rec_id: int, user=Depends(get_current_user),
     """
     Hasilkan penjelasan naratif untuk satu rekomendasi menggunakan LLM adapter.
 
-    - Jika OPENAI_API_KEY dikonfigurasi dan output lolos validasi → source: "llm"
-    - Jika tidak ada API key, LLM gagal, atau output tidak valid → source: "fallback"
+    - Jika OPENAI_API_KEY dikonfigurasi dan output lolos validasi â†’ source: "llm"
+    - Jika tidak ada API key, LLM gagal, atau output tidak valid â†’ source: "fallback"
     - Tidak ada angka absolut atau PII yang dikirim ke LLM (privacy guard).
     - Penjelasan bersifat informatif; bukan saran keuangan, pajak, atau hukum.
     """
@@ -2260,3 +2274,4 @@ def list_audit_events(limit: int = 50, offset: int = 0,
             "payload": ev.payload, "created_at": str(ev.created_at)
         } for ev in rows]
     }
+

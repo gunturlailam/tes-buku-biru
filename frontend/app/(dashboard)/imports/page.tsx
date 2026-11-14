@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -174,7 +174,7 @@ export default function ImportsPage() {
             </Button>
             {file && (
               <span className="text-xs text-[#7E8379]">
-                {file.name} · {(file.size / 1024).toFixed(1)} KB
+                {file.name} ┬╖ {(file.size / 1024).toFixed(1)} KB
               </span>
             )}
           </div>
@@ -213,7 +213,7 @@ export default function ImportsPage() {
                 <ul className="mt-2 list-disc pl-5">
                   {preview.errors.slice(0, 5).map((item) => (
                     <li key={`${item.row}-${item.field}`}>
-                      Baris {item.row} · {item.field}: {item.message}
+                      Baris {item.row} ┬╖ {item.field}: {item.message}
                     </li>
                   ))}
                 </ul>
