@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Alert } from "@/components/ui/Alert";
 import Link from "next/link";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, ArrowRight } from "lucide-react";
 import { authApi } from "@/features/auth/api/auth-api";
 import { saveAccessToken } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/api-client";
@@ -57,41 +57,26 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] flex">
+    <main className="min-h-screen flex">
       {/* LEFT PANEL - Hero Section */}
-      <div className="hidden lg:flex lg:flex-1 bg-[#273420] relative overflow-hidden items-center justify-center p-12">
+      <div className="hidden lg:flex lg:flex-1 bg-[#1a1a1a] relative overflow-hidden items-center justify-center p-12">
         {/* Decorative radial gradient */}
         <div 
           className="absolute inset-0 pointer-events-none"
           style={{
-            background: 'radial-gradient(ellipse at 66% 55%, rgba(163, 168, 138, 0.15), transparent 42%)',
+            background: 'radial-gradient(ellipse at 66% 55%, rgba(255, 201, 0, 0.08), transparent 42%)',
           }}
         />
 
-        {/* Logo brand - absolute top */}
-        <div className="absolute top-8 left-8 z-20 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/20">
-            <svg
-              className="w-6 h-6 text-[#A3A88A]"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-              />
-            </svg>
-          </div>
-          <span className="text-white font-serif text-lg font-semibold tracking-tight">
+        {/* Logo brand - absolute top left */}
+        <div className="absolute top-8 left-8 z-20">
+          <span className="text-[#ffc900] font-sans text-2xl font-bold tracking-tight">
             ProfitAI
           </span>
         </div>
 
         {/* Justice statue image - positioned bottom right */}
-        <div className="absolute bottom-0 right-2 w-1/2 h-full pointer-events-none opacity-35 mix-blend-screen">
+        <div className="absolute bottom-0 right-0 w-2/5 h-full pointer-events-none opacity-40 mix-blend-screen">
           <Image
             src="/justice-statue.webp"
             alt="Justice statue decoration"
@@ -103,268 +88,172 @@ export default function LoginPage() {
         </div>
 
         {/* Content - hero copy */}
-        <div className="relative z-10 max-w-lg text-white">
-          <div className="mb-12">
-            <h1 className="font-serif text-6xl font-bold leading-tight mb-6 tracking-tight">
-              Pahami<br />
-              <span className="text-[#A3A88A]">Laba Anda.</span><br />
-              Kuasai<br />
-              <span className="text-[#A3A88A]">Masa Depan.</span>
+        <div className="relative z-10 max-w-lg">
+          <div>
+            <h1 className="font-sans text-7xl font-bold leading-none mb-8 tracking-tight">
+              <span className="text-white">Know Your</span><br />
+              <span className="text-[#ffc900]">Profit.</span><br />
+              <span className="text-white">Own your</span><br />
+              <span className="text-[#ffc900]">Future.</span>
             </h1>
-            <p className="text-lg text-[#C5CCC0] leading-relaxed max-w-md">
-              Platform financial intelligence yang membantu UMKM memahami kondisi keuangan dengan analisis mendalam, forecasting akurat, dan rekomendasi berbasis data.
-            </p>
-          </div>
-
-          {/* Features showcase */}
-          <div className="space-y-4">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0 border border-white/20 backdrop-blur-sm">
-                <svg
-                  className="w-6 h-6 text-[#A3A88A]"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="1.5"
-                  />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Dashboard Analitik Mendalam</h3>
-                <p className="text-sm text-[#C5CCC0]">
-                  Pantau revenue, expense, cash flow, dan indikator kesehatan keuangan real-time
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0 border border-white/20 backdrop-blur-sm">
-                <svg
-                  className="w-6 h-6 text-[#A3A88A]"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="1.5"
-                  />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Forecasting Tervalidasi</h3>
-                <p className="text-sm text-[#C5CCC0]">
-                  Prediksi arus kas dan pendapatan dengan backtest accuracy, bukan spekulasi
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0 border border-white/20 backdrop-blur-sm">
-                <svg
-                  className="w-6 h-6 text-[#A3A88A]"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="1.5"
-                  />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Rekomendasi Berbasis AI</h3>
-                <p className="text-sm text-[#C5CCC0]">
-                  Insight akurat dengan evidence yang dapat ditelusuri, bukan angka yang dikarang
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className="mt-12 pt-8 border-t border-white/20">
-            <div className="text-xs text-[#C5CCC0] uppercase tracking-widest font-semibold">
-              Dipercaya oleh UMKM di seluruh Indonesia
-            </div>
           </div>
         </div>
-
-        {/* Floating decorative elements */}
-        <div className="absolute bottom-8 right-8 w-32 h-32 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 rotate-12"></div>
-        <div className="absolute top-24 right-32 w-24 h-24 rounded-full bg-[#A3A88A]/20 backdrop-blur-sm"></div>
       </div>
 
       {/* RIGHT PANEL - Login Form */}
-      <div className="flex-1 lg:flex-none lg:w-1/2 flex items-center justify-center p-6 sm:p-8">
-        <div className="w-full max-w-md">
-          {/* Header */}
-          <div className="mb-8 sm:mb-10">
-            <h2 className="text-3xl sm:text-4xl font-serif font-bold text-[#1F241D] mb-3">
-              Selamat Datang Kembali
-            </h2>
-            <p className="text-sm sm:text-base text-[#7E8379]">
-              Masuk ke akun Anda untuk melanjutkan ke dashboard
-            </p>
-          </div>
+      <div className="flex-1 lg:flex-none lg:w-1/2 flex items-center justify-center p-6 sm:p-8 bg-[#f5f4f0]">
+        <div className="w-full max-w-sm">
+          {/* Card */}
+          <div className="bg-white border border-[#77736c] rounded-[34px] p-8 sm:p-10 shadow-md">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <h2 className="text-4xl font-bold text-[#111111] mb-2">
+                Welcome Back!
+              </h2>
+              <p className="text-xs sm:text-sm text-[#77736f]">
+                Log in to continue to your account.
+              </p>
+            </div>
 
-          {/* Error Alert */}
-          {error && (
-            <Alert variant="error" className="mb-6">
-              {error}
-            </Alert>
-          )}
+            {/* Error Alert */}
+            {error && (
+              <Alert variant="error" className="mb-6">
+                {error}
+              </Alert>
+            )}
 
-          {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <Input
-              label="Email Address"
-              type="email"
-              name="email"
-              placeholder="nama@perusahaan.com"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              autoComplete="email"
-            />
+            {/* Login Form */}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Email */}
+              <div>
+                <label className="block text-xs font-semibold text-[#111111] mb-2">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#77736f]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <rect x="3.5" y="5.5" width="17" height="13" rx="2"/>
+                    <path d="m4.5 7 7.5 5.5L19.5 7" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="Enter your email address."
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                    autoComplete="email"
+                    className="w-full h-12 pl-10 pr-4 border border-[#dedbd5] rounded-[9px] bg-transparent text-sm outline-none placeholder-[#aaa7a1] focus:border-[#c49b00] focus:ring-1 focus:ring-[#ffc900]/14 transition-all"
+                  />
+                </div>
+              </div>
 
-            <div className="relative">
-              <Input
-                label="Password"
-                type={showPassword ? "text" : "password"}
-                name="password"
-                placeholder="Masukkan password Anda"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                autoComplete="current-password"
-              />
+              {/* Password */}
+              <div>
+                <label className="block text-xs font-semibold text-[#111111] mb-2">
+                  Password
+                </label>
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#77736f]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <rect x="5" y="10" width="14" height="10" rx="2"/>
+                    <path d="M8 10V7a4 4 0 0 1 8 0v3" strokeLinecap="round"/>
+                    <path d="M12 14v2" strokeLinecap="round"/>
+                  </svg>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    placeholder="Enter your password."
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                    autoComplete="current-password"
+                    className="w-full h-12 pl-10 pr-10 border border-[#dedbd5] rounded-[9px] bg-transparent text-sm outline-none placeholder-[#aaa7a1] focus:border-[#c49b00] focus:ring-1 focus:ring-[#ffc900]/14 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#77736f] hover:text-[#111111] transition-colors"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Remember & Forgot */}
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="remember"
+                    checked={formData.remember}
+                    onChange={handleChange}
+                    className="w-3.5 h-3.5 rounded border-[#dedbd5] accent-[#ffc900] cursor-pointer"
+                  />
+                  <span className="text-[#77736f]">Remember Me</span>
+                </label>
+                <Link
+                  href="/forgot-password"
+                  className="text-[#111111] hover:underline font-medium"
+                >
+                  Forgot Password?
+                </Link>
+              </div>
+
+              {/* Login Button */}
               <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-[38px] text-[#7E8379] hover:text-[#1F241D] transition-colors"
-                aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                type="submit"
+                disabled={isLoading}
+                className="w-full h-12 bg-[#ffc900] text-[#111111] border border-[#ffc900] rounded-[9px] font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#f0bd00] hover:border-[#f0bd00] transition-all shadow-md hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {showPassword ? (
-                  <EyeOff className="w-4 h-4" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
+                {isLoading ? "Processing..." : "Login"}
+                {!isLoading && <ArrowRight className="w-4 h-4" />}
               </button>
+            </form>
+
+            {/* Divider */}
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-[#e5e2dc]"></div>
+              </div>
+              <div className="relative flex justify-center">
+                <span className="bg-white px-2 text-xs text-[#aaa7a1] font-medium">
+                  OR
+                </span>
+              </div>
             </div>
 
-            <div className="flex items-center justify-between gap-3">
-              <label className="flex items-center gap-2 cursor-pointer hover:text-[#273420] transition-colors">
-                <input
-                  type="checkbox"
-                  name="remember"
-                  checked={formData.remember}
-                  onChange={handleChange}
-                  className="w-4 h-4 rounded border-[#EBE5DC] text-[#273420] focus:ring-[#314028] focus:ring-offset-0 cursor-pointer"
-                />
-                <span className="text-sm text-[#1F241D]">Ingat saya</span>
-              </label>
+            {/* Google Button */}
+            <button
+              type="button"
+              className="w-full h-12 border border-[#dedbd5] rounded-[9px] text-[#171717] font-semibold text-sm flex items-center justify-center gap-2 hover:bg-white/70 transition-all"
+            >
+              <span className="text-lg font-bold text-[#4285f4]">G</span>
+              Continue with Google
+            </button>
 
-              <Link
-                href="/forgot-password"
-                className="text-sm text-[#314028] hover:text-[#273420] font-medium transition-colors"
-              >
-                Lupa password?
+            {/* Sign Up Link */}
+            <p className="mt-6 text-center text-xs text-[#99958f]">
+              Don't have an account?{" "}
+              <Link href="/register" className="font-semibold underline">
+                Sign Up
               </Link>
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full bg-[#314028] hover:bg-[#273420] transition-colors"
-              size="lg"
-              isLoading={isLoading}
-              disabled={isLoading}
-            >
-              {isLoading ? "Memproses..." : "Masuk"}
-            </Button>
-          </form>
-
-          {/* Divider */}
-          <div className="relative my-7">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-[#EBE5DC]"></div>
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-[#FAF7F2] px-3 text-xs text-[#7E8379] font-semibold uppercase tracking-wide">
-                Demo
-              </span>
-            </div>
-          </div>
-
-          {/* Demo Credentials Card */}
-          <div className="bg-[#F6EFE9] border border-[#EBE5DC] rounded-2xl p-4 mb-8">
-            <p className="text-xs font-semibold text-[#1F241D] mb-3 flex items-center gap-2">
-              <svg
-                className="w-4 h-4 text-[#8FA382]"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                />
-              </svg>
-              <span>Demo Account Ready</span>
             </p>
-            <div className="space-y-2 text-xs text-[#7E8379] font-mono">
-              <p>
-                <span className="text-[#1F241D] font-semibold">Email:</span><br />
-                <span className="text-[#314028] font-medium">demo@profitai.local</span>
-              </p>
-              <p>
-                <span className="text-[#1F241D] font-semibold">Password:</span><br />
-                <span className="text-[#314028] font-medium">Demo12345!</span>
-              </p>
-            </div>
+
+            {/* Security Note */}
+            <p className="mt-7 text-center text-xs text-[#aaa7a1] flex items-center justify-center gap-1">
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="5" y="10" width="14" height="10" rx="2"/>
+                <path d="M8 10V7a4 4 0 0 1 8 0v3" strokeLinecap="round"/>
+              </svg>
+              Your data. Protected and private.
+            </p>
           </div>
-
-          {/* Register Link */}
-          <p className="text-center text-sm text-[#7E8379]">
-            Belum punya akun?{" "}
-            <Link
-              href="/register"
-              className="text-[#314028] hover:text-[#273420] font-semibold transition-colors"
-            >
-              Daftar sekarang
-            </Link>
-          </p>
-
-          {/* Security note */}
-          <p className="mt-8 text-center text-xs text-[#C5CCC0] flex items-center justify-center gap-2">
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-              />
-            </svg>
-            <span>Data Anda dilindungi dan privat</span>
-          </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
