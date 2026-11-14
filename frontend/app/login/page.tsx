@@ -14,12 +14,17 @@ import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     if (getAccessToken()) {
       router.replace("/dashboard");
+    } else {
+      setChecking(false);
     }
   }, [router]);
+
+  if (checking) return null;
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -263,4 +268,5 @@ export default function LoginPage() {
     </main>
   );
 }
+
 
