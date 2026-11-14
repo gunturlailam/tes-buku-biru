@@ -14,6 +14,7 @@ export interface RegisterPayload extends LoginPayload {
 export interface LoginResponse {
   access_token: string;
   token_type: "bearer";
+  organization_id?: number;
 }
 
 export interface CurrentUser {

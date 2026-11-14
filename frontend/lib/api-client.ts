@@ -1,5 +1,5 @@
 import axios, { AxiosError, AxiosInstance } from "axios";
-import { clearAccessToken, getAccessToken } from "@/lib/auth";
+import { clearAccessToken, getAccessToken, getOrgId } from "@/lib/auth";
 
 const baseURL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1";
@@ -20,6 +20,10 @@ apiClient.interceptors.request.use(
     const token = getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    const orgId = getOrgId();
+    if (orgId) {
+      config.headers["X-Organization-ID"] = orgId;
     }
 
     if (process.env.NEXT_PUBLIC_APP_ENV === "development") {

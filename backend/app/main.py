@@ -155,7 +155,13 @@ def login(p: schemas.LoginIn, request: Request, db=Depends(get_db)):
                           expires_at=datetime.now(timezone.utc) + timedelta(days=7)))
     log_audit(db, None, user.id, "USER_LOGGED_IN", "sessions", None, {"email": user.email})
     db.commit()
-    return {"access_token": token, "token_type": "bearer"}
+    # Ambil org_id milik user ini (bukan org lain)
+    membership = (db.query(models.Membership)
+                  .filter_by(user_id=user.id)
+                  .order_by(models.Membership.organization_id)
+                  .first())
+    organization_id = membership.organization_id if membership else None
+    return {"access_token": token, "token_type": "bearer", "organization_id": organization_id}
 
 @app.post("/api/v1/auth/logout")
 def logout(creds=Depends(bearer), db=Depends(get_db)):
