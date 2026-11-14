@@ -9,7 +9,6 @@ import { useFinancialHealth } from "@/features/insights/hooks/use-financial-heal
 import { getDateRangeForPeriod, type PeriodType } from "@/lib/date-utils";
 import { Filter } from "lucide-react";
 
-
 export default function InsightsPage() {
   const [selectedPeriod] = useState<PeriodType>("MTD");
   const [filterLevel, setFilterLevel] = useState<

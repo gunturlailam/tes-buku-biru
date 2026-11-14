@@ -11,7 +11,6 @@ import { getDateRangeForPeriod, type PeriodType } from "@/lib/date-utils";
 import type { Recommendation } from "@/types/financial";
 import { Filter, Sparkles } from "lucide-react";
 
-
 export default function RecommendationsPage() {
   const [selectedPeriod] = useState<PeriodType>("MTD");
   const [filterPriority, setFilterPriority] = useState<

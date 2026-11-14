@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-
 interface RecentTransaction {
   id: number;
   transaction_date?: string;

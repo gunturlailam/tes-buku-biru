@@ -13,7 +13,6 @@ import { DataQualityBadge } from "@/components/shared/DataQualityBadge";
 import type { MetricValue } from "@/types/financial";
 import { FileText, TrendingUp } from "lucide-react";
 
-
 export default function ReportsPage() {
   const [selectedPeriod] = useState<PeriodType>("MTD");
   const [activeTab, setActiveTab] = useState<"profit-loss" | "cash-flow">(

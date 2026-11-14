@@ -13,7 +13,6 @@ import {
   type OrganizationResponse,
 } from "@/lib/api";
 
-
 interface Toast {
   type: "success" | "error";
   message: string;
