@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/Table";
-import { Plus, Search, Filter, Receipt, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Receipt, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useTransactions } from "@/hooks/use-transactions";
@@ -32,7 +32,7 @@ const categoryOptions = [
   { value: "Gaji", label: "Gaji" },
 ];
 
-export default function TransactionsPage() {
+function TransactionsContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -212,5 +212,18 @@ export default function TransactionsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function TransactionsPage() {
+  return (
+    <Suspense fallback={
+      <div className="space-y-6">
+        <div className="h-12 bg-gray-200 rounded animate-pulse" />
+        <div className="h-96 bg-gray-200 rounded animate-pulse" />
+      </div>
+    }>
+      <TransactionsContent />
+    </Suspense>
   );
 }

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { transactionAPI } from "@/lib/api";
+import { getDateRangeForPeriod } from "@/lib/date-utils";
 
 interface TransactionFilters {
   skip?: number;
@@ -11,10 +12,22 @@ interface TransactionFilters {
 }
 
 export function useTransactions(filters?: TransactionFilters) {
+  // If no date range provided, use default MTD (Month-To-Date)
+  const dateRange = filters?.from_date && filters?.to_date 
+    ? { from_date: filters.from_date, to_date: filters.to_date }
+    : getDateRangeForPeriod("MTD");
+
+  const mergedFilters = {
+    ...filters,
+    ...dateRange,
+  };
+
   return useQuery({
-    queryKey: ["transactions", filters],
-    queryFn: () => transactionAPI.getTransactions(filters),
+    queryKey: ["transactions", mergedFilters],
+    queryFn: () => transactionAPI.getTransactions(mergedFilters),
     staleTime: 1000 * 30, // 30 seconds
+    retry: 1,
+    retryDelay: 1000,
   });
 }
 

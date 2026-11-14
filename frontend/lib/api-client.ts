@@ -36,7 +36,13 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiErrorResponse>) => {
     if (process.env.NEXT_PUBLIC_APP_ENV === "development") {
-      console.error("[API Error]", error.response?.data || error.message);
+      console.error("[API Error]", {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+        url: error.config?.url,
+        method: error.config?.method,
+      });
     }
 
     if (error.response?.status === 401 && typeof window !== "undefined") {

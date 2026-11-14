@@ -41,7 +41,17 @@ export const transactionAPI = {
     from_date?: string;
     to_date?: string;
   }) => {
-    const { data } = await apiClient.get("/transactions", { params });
+    // Ensure date parameters are provided with correct names (from/to for backend query params)
+    const queryParams = {
+      limit: params?.limit || 50,
+      offset: params?.skip || 0,
+      from: params?.from_date,
+      to: params?.to_date,
+      ...(params?.tx_type && { tx_type: params.tx_type }),
+      ...(params?.category_id && { category_id: params.category_id }),
+    };
+    
+    const { data } = await apiClient.get("/transactions", { params: queryParams });
     return data;
   },
 

@@ -1,9 +1,17 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Enable component caching and partial prefetching for faster navigation
   cacheComponents: true,
   partialPrefetching: true,
+  
+  // Optimize images for better performance
+  images: {
+    unoptimized: false,
+    formats: ["image/avif", "image/webp"],
+  },
+
+  // Turbopack optimization for faster builds
   turbopack: {
     rules: {
       "*.css": {
@@ -11,6 +19,12 @@ const nextConfig: NextConfig = {
         as: "*.css",
       },
     },
+  },
+
+  // Experimental optimizations
+  experimental: {
+    optimizePackageImports: ["@radix-ui/react-*", "lucide-react"],
+    optimizeCss: true,
   },
 };
 
