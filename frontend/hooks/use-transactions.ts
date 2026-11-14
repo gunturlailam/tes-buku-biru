@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { transactionAPI } from "@/lib/api";
 import { getDateRangeForPeriod } from "@/lib/date-utils";
 
@@ -12,19 +13,43 @@ interface TransactionFilters {
 }
 
 export function useTransactions(filters?: TransactionFilters) {
-  // If no date range provided, use default MTD (Month-To-Date)
-  const dateRange = filters?.from_date && filters?.to_date 
-    ? { from_date: filters.from_date, to_date: filters.to_date }
-    : getDateRangeForPeriod("MTD");
+  // ALWAYS ensure we have valid dates - required by backend
+  const { from, to } = useMemo(() => {
+    // If explicit dates provided, use them
+    if (filters?.from_date && filters?.to_date) {
+      return {
+        from: String(filters.from_date).split("T")[0],
+        to: String(filters.to_date).split("T")[0],
+      };
+    }
 
-  const mergedFilters = {
-    ...filters,
-    ...dateRange,
-  };
+    // Otherwise generate MTD dates
+    const dateRange = getDateRangeForPeriod("MTD");
+    return {
+      from: dateRange.from,
+      to: dateRange.to,
+    };
+  }, [filters?.from_date, filters?.to_date]);
+
+  // Build the final params object with required dates
+  const finalParams = useMemo(() => {
+    return {
+      from_date: from,
+      to_date: to,
+      limit: filters?.limit,
+      skip: filters?.skip,
+      tx_type: filters?.tx_type,
+      category_id: filters?.category_id,
+    };
+  }, [from, to, filters?.limit, filters?.skip, filters?.tx_type, filters?.category_id]);
+
+  if (process.env.NEXT_PUBLIC_APP_ENV === "development") {
+    console.log("[useTransactions] Final params with dates:", finalParams);
+  }
 
   return useQuery({
-    queryKey: ["transactions", mergedFilters],
-    queryFn: () => transactionAPI.getTransactions(mergedFilters),
+    queryKey: ["transactions", finalParams],
+    queryFn: () => transactionAPI.getTransactions(finalParams),
     staleTime: 1000 * 30, // 30 seconds
     retry: 1,
     retryDelay: 1000,

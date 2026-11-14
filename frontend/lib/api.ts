@@ -54,6 +54,21 @@ export const transactionAPI = {
       ...(params?.tx_type && { tx_type: params.tx_type }),
       ...(params?.category_id && { category_id: params.category_id }),
     };
+
+    // Debug log
+    if (process.env.NEXT_PUBLIC_APP_ENV === "development") {
+      console.log("[transactionAPI.getTransactions] Query params:", queryParams);
+    }
+
+    // Validate that from and to are present
+    if (!from_date || !to_date) {
+      console.error("[transactionAPI.getTransactions] Missing required date parameters", {
+        from_date,
+        to_date,
+        originalParams: params,
+      });
+      throw new Error("Date parameters are required (from_date and to_date)");
+    }
     
     const { data } = await apiClient.get("/transactions", { params: queryParams });
     return data.items || [];
