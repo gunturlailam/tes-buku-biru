@@ -10,7 +10,7 @@ export const apiClient: AxiosInstance = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true,
+  withCredentials: false, // Changed to false for network backend
 });
 
 apiClient.interceptors.request.use(
@@ -21,7 +21,10 @@ apiClient.interceptors.request.use(
     }
 
     if (process.env.NEXT_PUBLIC_APP_ENV === "development") {
-      console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
+      const params = new URLSearchParams(config.params).toString();
+      console.log(`[API] ${config.method?.toUpperCase()} ${config.url}?${params}`, {
+        hasToken: !!config.headers.Authorization,
+      });
     }
     return config;
   },
@@ -32,7 +35,17 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiErrorResponse>) => {
     if (process.env.NEXT_PUBLIC_APP_ENV === "development") {
-      console.error("[API Error]", error.response?.data || error.message);
+      console.error("[API Error Response]", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          params: error.config?.params,
+        },
+        message: error.message,
+      });
     }
 
     if (error.response?.status === 401 && typeof window !== "undefined") {

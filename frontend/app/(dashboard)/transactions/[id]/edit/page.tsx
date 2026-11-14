@@ -10,6 +10,43 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useTransaction, useUpdateTransaction } from "@/hooks/use-transactions";
+import { getErrorMessage } from "@/lib/api";
+
+interface Toast {
+  type: "success" | "error";
+  message: string;
+}
+
+// Helper function to map category name to ID
+const getCategoryIdByName = (categoryName: string): number => {
+  const categoryMap: Record<string, number> = {
+    "Penjualan": 1,
+    "Pembelian": 2,
+    "Operasional": 3,
+    "Gaji": 4,
+    "Marketing": 5,
+    "Transportasi": 6,
+    "Utilitas": 7,
+    "Lainnya": 8,
+  };
+  return categoryMap[categoryName] || 1;
+};
+
+// Helper function to map category ID back to name
+const getCategoryNameById = (categoryId: number): string => {
+  const idToNameMap: Record<number, string> = {
+    1: "Penjualan",
+    2: "Pembelian",
+    3: "Operasional",
+    4: "Gaji",
+    5: "Marketing",
+    6: "Transportasi",
+    7: "Utilitas",
+    8: "Lainnya",
+  };
+  return idToNameMap[categoryId] || "";
+};
 
 const typeOptions = [
   { value: "income", label: "Pemasukan" },
@@ -39,9 +76,13 @@ const accountOptions = [
 export default function EditTransactionPage() {
   const router = useRouter();
   const params = useParams();
-  const [isLoading, setIsLoading] = useState(false);
-  const [isFetching, setIsFetching] = useState(true);
+  const transactionId = parseInt(params.id as string, 10);
+
+  const { data: existingTx, isLoading: isFetching } = useTransaction(transactionId);
+  const { mutate: updateTransaction, isPending: isUpdating } = useUpdateTransaction();
+
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [toast, setToast] = useState<Toast | null>(null);
 
   const [formData, setFormData] = useState({
     date: "",
@@ -53,28 +94,20 @@ export default function EditTransactionPage() {
     notes: "",
   });
 
+  // Load existing transaction data into form
   useEffect(() => {
-    // Simulate API fetch
-    const fetchTransaction = async () => {
-      setIsFetching(true);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Mock data
+    if (existingTx) {
       setFormData({
-        date: "2026-01-15",
-        description: "Penjualan Produk A",
-        amount: "2500000",
-        type: "income",
-        category: "Penjualan",
-        account: "cash",
-        notes: "Pembayaran lunas",
+        date: existingTx.tx_date || existingTx.transaction_date || "",
+        description: existingTx.description || "",
+        amount: String(existingTx.amount || ""),
+        type: existingTx.tx_type || "income",
+        category: getCategoryNameById(existingTx.category_id) || "",
+        account: existingTx.account || "cash",
+        notes: existingTx.counterparty || existingTx.notes || "",
       });
-
-      setIsFetching(false);
-    };
-
-    fetchTransaction();
-  }, [params.id]);
+    }
+  }, [existingTx]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -122,11 +155,36 @@ export default function EditTransactionPage() {
       return;
     }
 
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    console.log("Updated data:", formData);
-    setIsLoading(false);
-    router.push("/transactions");
+    // Prepare payload for API
+    const payload = {
+      tx_type: formData.type,
+      amount: formData.amount,
+      tx_date: formData.date,
+      category_id: getCategoryIdByName(formData.category),
+      description: formData.description || "",
+      counterparty: formData.notes || "",
+    };
+
+    updateTransaction(
+      { id: transactionId, data: payload },
+      {
+        onSuccess: () => {
+          setToast({
+            type: "success",
+            message: "Transaksi berhasil diperbarui",
+          });
+          setTimeout(() => router.push("/transactions"), 1000);
+        },
+        onError: (error) => {
+          const errorMessage = getErrorMessage(error);
+          setToast({
+            type: "error",
+            message: errorMessage || "Gagal memperbarui transaksi",
+          });
+          setErrors({ submit: errorMessage });
+        },
+      }
+    );
   };
 
   if (isFetching) {
@@ -161,7 +219,25 @@ export default function EditTransactionPage() {
           <CardTitle>Informasi Transaksi</CardTitle>
         </CardHeader>
         <CardContent>
+          {toast && (
+            <div
+              className={`mb-4 p-4 rounded-lg text-sm font-medium ${
+                toast.type === "success"
+                  ? "bg-green-50 text-green-800 border border-green-200"
+                  : "bg-red-50 text-red-800 border border-red-200"
+              }`}
+            >
+              {toast.message}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-5">
+            {errors.submit && (
+              <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800">
+                {errors.submit}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <Input
                 label="Tanggal Transaksi"
@@ -236,11 +312,11 @@ export default function EditTransactionPage() {
             />
 
             <div className="flex items-center gap-3 pt-4 border-t border-[#EBE5DC]">
-              <Button type="submit" isLoading={isLoading} disabled={isLoading}>
-                {isLoading ? "Menyimpan..." : "Simpan Perubahan"}
+              <Button type="submit" isLoading={isUpdating} disabled={isUpdating}>
+                {isUpdating ? "Menyimpan..." : "Simpan Perubahan"}
               </Button>
               <Link href="/transactions">
-                <Button type="button" variant="secondary" disabled={isLoading}>
+                <Button type="button" variant="secondary" disabled={isUpdating}>
                   Batal
                 </Button>
               </Link>
