@@ -45,12 +45,12 @@ export default function LoginPage() {
 
     // Mock authentication
     if (
-      formData.email === "demo@profitai.id" &&
-      formData.password === "demo123"
+      formData.email === "demo@profitai.local" &&
+      formData.password === "Demo12345!"
     ) {
       router.push("/dashboard");
     } else {
-      setError("Email atau password salah. Gunakan demo@profitai.id / demo123");
+      setError("Email atau password salah. Gunakan demo@profitai.local / Demo12345!");
       setIsLoading(false);
     }
   };
@@ -203,11 +203,11 @@ export default function LoginPage() {
             <div className="space-y-1 text-xs text-[#7E8379]">
               <p>
                 <span className="font-medium text-[#1F241D]">Email:</span>{" "}
-                demo@profitai.id
+                demo@profitai.local
               </p>
               <p>
                 <span className="font-medium text-[#1F241D]">Password:</span>{" "}
-                demo123
+                Demo12345!
               </p>
             </div>
           </div>

@@ -27,17 +27,17 @@ export function RecommendationCard({ recommendation, onMarkDone }: Recommendatio
   const { id, title, priority, evidence, suggested_actions, assumptions, limitations, status, llm_explanation } = recommendation;
 
   return (
-    <div className="bg-white rounded-2xl border border-[#EBE5DC]/70 shadow-[0_2px_16px_rgba(39,52,32,0.03)] p-6 space-y-5">
+    <div className="bg-white rounded-2xl border border-gray-200/60 shadow-premium p-6 space-y-5 hover:border-emerald-200 hover:shadow-md transition-all">
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-3 flex-1">
-          <div className="w-11 h-11 bg-[#F6EFEA] rounded-xl flex items-center justify-center flex-shrink-0">
-            <Lightbulb className="w-5 h-5 text-[#C98A82]" />
+          <div className="w-11 h-11 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
+            <Lightbulb className="w-5 h-5 text-white" />
           </div>
           <div className="flex-1">
-            <h3 className="text-lg font-serif font-semibold text-[#1F241D] leading-snug">
+            <h3 className="text-lg font-semibold text-gray-900 leading-snug">
               {title}
             </h3>
-            <p className="text-xs text-[#7E8379] mt-1">
+            <p className="text-xs text-gray-600 mt-1">
               Periode: {recommendation.period.from} - {recommendation.period.to}
             </p>
           </div>
@@ -50,12 +50,12 @@ export function RecommendationCard({ recommendation, onMarkDone }: Recommendatio
       </div>
 
       {llm_explanation && (
-        <div className="p-4 bg-[#FAF7F2] rounded-xl border border-[#EBE5DC]/50">
+        <div className="p-4 bg-gray-50 rounded-xl border border-gray-200/60 shadow-sm">
           <div className="flex items-start gap-2.5">
-            <div className="w-6 h-6 bg-[#273420] rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-6 h-6 bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm">
               <span className="text-white text-xs font-bold">AI</span>
             </div>
-            <p className="text-sm text-[#1F241D] leading-relaxed flex-1">
+            <p className="text-sm text-gray-900 leading-relaxed flex-1">
               {llm_explanation}
             </p>
           </div>
@@ -64,14 +64,14 @@ export function RecommendationCard({ recommendation, onMarkDone }: Recommendatio
 
       <div className="space-y-4">
         <div>
-          <h4 className="text-xs font-semibold text-[#7E8379] uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+          <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
             <TrendingUp className="w-3.5 h-3.5" />
             <span>Evidence / Bukti</span>
           </h4>
           <ul className="space-y-1.5">
             {evidence.map((item, idx) => (
-              <li key={idx} className="flex items-start gap-2 text-sm text-[#1F241D]">
-                <span className="text-[#8FA382] mt-1">•</span>
+              <li key={idx} className="flex items-start gap-2 text-sm text-gray-900">
+                <span className="text-emerald-600 mt-1">•</span>
                 <span>{item}</span>
               </li>
             ))}
@@ -79,14 +79,14 @@ export function RecommendationCard({ recommendation, onMarkDone }: Recommendatio
         </div>
 
         <div>
-          <h4 className="text-xs font-semibold text-[#7E8379] uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+          <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span>Tindakan yang Disarankan</span>
           </h4>
           <ol className="space-y-2">
             {suggested_actions.map((action, idx) => (
-              <li key={idx} className="flex items-start gap-2.5 text-sm text-[#1F241D]">
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#273420] text-white text-xs font-semibold flex-shrink-0 mt-0.5">
+              <li key={idx} className="flex items-start gap-2.5 text-sm text-gray-900">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-700 text-white text-xs font-semibold flex-shrink-0 mt-0.5 shadow-sm">
                   {idx + 1}
                 </span>
                 <span>{action}</span>

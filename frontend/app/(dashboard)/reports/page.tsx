@@ -101,10 +101,10 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-serif font-bold text-[#1F241D]">
+        <h1 className="text-2xl font-bold text-gray-900">
           Laporan Keuangan
         </h1>
-        <p className="text-sm text-[#7E8379] mt-1">
+        <p className="text-sm text-gray-600 mt-1">
           Analisis keuangan usaha berdasarkan transaksi tercatat
         </p>
       </div>
@@ -135,15 +135,15 @@ export default function ReportsPage() {
       )}
 
       {activeTab === "cash-flow" && (
-        <div className="bg-white rounded-2xl border border-[#EBE5DC]/70 shadow-[0_2px_16px_rgba(39,52,32,0.03)] p-8 text-center">
+        <div className="bg-white rounded-2xl border border-gray-200/60 shadow-premium p-8 text-center hover:border-emerald-200 hover:shadow-md transition-all">
           <div className="max-w-md mx-auto">
-            <div className="w-16 h-16 bg-[#FAF7F2] rounded-full flex items-center justify-center mx-auto mb-4">
-              <TrendingUp className="w-8 h-8 text-[#7E8379]" />
+            <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <TrendingUp className="w-8 h-8 text-white" />
             </div>
-            <h3 className="text-lg font-serif font-semibold text-[#1F241D] mb-2">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
               Laporan Arus Kas
             </h3>
-            <p className="text-sm text-[#7E8379]">
+            <p className="text-sm text-gray-600">
               Fitur ini sedang dalam pengembangan dan akan segera tersedia.
             </p>
           </div>

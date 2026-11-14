@@ -42,18 +42,18 @@ export function RiskSignalCard({ signal }: RiskSignalCardProps) {
 
   return (
     <div
-      className={`rounded-2xl border ${borderColorMap[signal.level]} ${bgColorMap[signal.level]} p-5 transition-all hover:shadow-md`}
+      className={`rounded-2xl border ${borderColorMap[signal.level]} ${bgColorMap[signal.level]} p-5 transition-all hover:shadow-md hover:border-opacity-80`}
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-full bg-white flex items-center justify-center ${iconColorMap[signal.level]}`}>
+          <div className={`w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm ${iconColorMap[signal.level]}`}>
             <Icon className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-[#1F241D]">
+            <h3 className="text-base font-semibold text-gray-900">
               {signal.title}
             </h3>
-            <p className="text-xs text-[#7E8379] mt-0.5">
+            <p className="text-xs text-gray-600 mt-0.5">
               {signal.period.from} - {signal.period.to}
             </p>
           </div>
@@ -62,16 +62,16 @@ export function RiskSignalCard({ signal }: RiskSignalCardProps) {
       </div>
 
       <div className="space-y-3">
-        <div className="flex items-center justify-between p-3 bg-white rounded-xl">
-          <span className="text-sm text-[#666A61]">Metrik Pemicu</span>
-          <span className="text-sm font-medium text-[#1F241D]">
+        <div className="flex items-center justify-between p-3 bg-white rounded-xl shadow-sm">
+          <span className="text-sm text-gray-600">Metrik Pemicu</span>
+          <span className="text-sm font-medium text-gray-900">
             {signal.trigger_metric}
           </span>
         </div>
 
-        <div className="flex items-center justify-between p-3 bg-white rounded-xl">
-          <span className="text-sm text-[#666A61]">Nilai Saat Ini</span>
-          <span className="text-sm font-semibold text-[#273420]">
+        <div className="flex items-center justify-between p-3 bg-white rounded-xl shadow-sm">
+          <span className="text-sm text-gray-600">Nilai Saat Ini</span>
+          <span className="text-sm font-semibold text-gray-900">
             {typeof signal.current_value === "number"
               ? signal.current_value.toLocaleString("id-ID")
               : signal.current_value || "-"}
@@ -79,9 +79,9 @@ export function RiskSignalCard({ signal }: RiskSignalCardProps) {
         </div>
 
         {signal.threshold && (
-          <div className="flex items-center justify-between p-3 bg-white rounded-xl">
-            <span className="text-sm text-[#666A61]">Ambang Batas</span>
-            <span className="text-sm font-medium text-[#7E8379]">
+          <div className="flex items-center justify-between p-3 bg-white rounded-xl shadow-sm">
+            <span className="text-sm text-gray-600">Ambang Batas</span>
+            <span className="text-sm font-medium text-gray-700">
               {typeof signal.threshold === "number"
                 ? signal.threshold.toLocaleString("id-ID")
                 : signal.threshold}
@@ -90,22 +90,22 @@ export function RiskSignalCard({ signal }: RiskSignalCardProps) {
         )}
       </div>
 
-      <div className="mt-4 p-3 bg-white rounded-xl">
-        <h4 className="text-xs font-semibold text-[#7E8379] uppercase tracking-wider mb-2">
+      <div className="mt-4 p-3 bg-white rounded-xl shadow-sm">
+        <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">
           Penjelasan
         </h4>
-        <p className="text-sm text-[#1F241D] leading-relaxed">
+        <p className="text-sm text-gray-900 leading-relaxed">
           {signal.explanation}
         </p>
       </div>
 
       {signal.recommendation && (
-        <div className="mt-3 p-3 bg-white rounded-xl border border-[#EBE5DC]/70">
-          <h4 className="text-xs font-semibold text-[#273420] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+        <div className="mt-3 p-3 bg-white rounded-xl border border-emerald-200/60 shadow-sm">
+          <h4 className="text-xs font-semibold text-emerald-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
             <TrendingUp className="w-3.5 h-3.5" />
             <span>Rekomendasi</span>
           </h4>
-          <p className="text-sm text-[#1F241D] leading-relaxed">
+          <p className="text-sm text-gray-900 leading-relaxed">
             {signal.recommendation}
           </p>
         </div>

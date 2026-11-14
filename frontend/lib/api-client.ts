@@ -9,7 +9,7 @@ export const apiClient: AxiosInstance = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true,
+  withCredentials: false, // Changed to false for network backend
 });
 
 apiClient.interceptors.request.use(

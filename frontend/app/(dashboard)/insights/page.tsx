@@ -98,31 +98,31 @@ export default function InsightsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-serif font-bold text-[#1F241D]">
+        <h1 className="text-2xl font-bold text-gray-900">
           Insight Kesehatan Keuangan
         </h1>
-        <p className="text-sm text-[#7E8379] mt-1">
+        <p className="text-sm text-gray-600 mt-1">
           Analisis risiko dan indikator kesehatan finansial usaha Anda
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-[#EBE5DC]/70 shadow-[0_2px_16px_rgba(39,52,32,0.03)] p-5">
+      <div className="bg-white rounded-2xl border border-gray-200/60 shadow-premium p-5 hover:border-emerald-200 hover:shadow-md transition-all">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-base font-semibold text-[#1F241D]">
+            <h3 className="text-base font-semibold text-gray-900">
               Ringkasan Status
             </h3>
-            <p className="text-xs text-[#7E8379] mt-0.5">
+            <p className="text-xs text-gray-600 mt-0.5">
               Periode: {mockHealthData.period.from} - {mockHealthData.period.to}
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-red-50 rounded-xl p-4 border border-red-200">
+          <div className="bg-red-50 rounded-xl p-4 border border-red-200 hover:shadow-md transition-all">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-red-900">Kritis</span>
-              <span className="text-2xl font-serif font-bold text-red-600">
+              <span className="financial-number text-2xl font-bold text-red-600">
                 {criticalCount}
               </span>
             </div>
@@ -131,24 +131,24 @@ export default function InsightsPage() {
             </p>
           </div>
 
-          <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+          <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200 hover:shadow-md transition-all">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-yellow-900">
                 Perhatian
               </span>
-              <span className="text-2xl font-serif font-bold text-yellow-600">
+              <span className="financial-number text-2xl font-bold text-yellow-600">
                 {attentionCount}
               </span>
             </div>
             <p className="text-xs text-yellow-700 mt-1">Perlu monitoring</p>
           </div>
 
-          <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
+          <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200 hover:shadow-md transition-all">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-emerald-900">
                 Normal
               </span>
-              <span className="text-2xl font-serif font-bold text-emerald-600">
+              <span className="financial-number text-2xl font-bold text-emerald-600">
                 {normalCount}
               </span>
             </div>
@@ -158,7 +158,7 @@ export default function InsightsPage() {
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 text-sm text-[#666A61]">
+        <div className="flex items-center gap-2 text-sm text-gray-600">
           <Filter className="w-4 h-4" />
           <span className="font-medium">Filter:</span>
         </div>
@@ -201,15 +201,15 @@ export default function InsightsPage() {
       </div>
 
       {filteredSignals.length === 0 && (
-        <div className="bg-white rounded-2xl border border-[#EBE5DC]/70 shadow-[0_2px_16px_rgba(39,52,32,0.03)] p-8 text-center">
+        <div className="bg-white rounded-2xl border border-gray-200/60 shadow-premium p-8 text-center hover:border-emerald-200 hover:shadow-md transition-all">
           <div className="max-w-md mx-auto">
-            <div className="w-16 h-16 bg-[#FAF7F2] rounded-full flex items-center justify-center mx-auto mb-4">
-              <Filter className="w-8 h-8 text-[#7E8379]" />
+            <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Filter className="w-8 h-8 text-white" />
             </div>
-            <h3 className="text-lg font-serif font-semibold text-[#1F241D] mb-2">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
               Tidak Ada Sinyal
             </h3>
-            <p className="text-sm text-[#7E8379]">
+            <p className="text-sm text-gray-600">
               Tidak ada sinyal dengan level {filterLevel} pada periode ini.
             </p>
           </div>

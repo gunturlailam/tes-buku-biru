@@ -174,24 +174,24 @@ export default function RecommendationsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-serif font-bold text-[#1F241D]">
+        <h1 className="text-2xl font-bold text-gray-900">
           Rekomendasi AI
         </h1>
-        <p className="text-sm text-[#7E8379] mt-1">
+        <p className="text-sm text-gray-600 mt-1">
           Saran berbasis analisis data keuangan Anda
         </p>
       </div>
 
-      <div className="bg-gradient-to-br from-[#273420] to-[#3B4A34] text-white rounded-2xl p-6 shadow-lg">
+      <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 text-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all">
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center flex-shrink-0">
+          <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
             <Sparkles className="w-6 h-6 text-white" />
           </div>
           <div className="flex-1">
-            <h3 className="text-lg font-serif font-semibold mb-2">
+            <h3 className="text-lg font-semibold mb-2">
               {activeCount} Rekomendasi Aktif
             </h3>
-            <p className="text-sm text-white/80 leading-relaxed">
+            <p className="text-sm text-white/90 leading-relaxed">
               Rekomendasi ini dihasilkan berdasarkan analisis pola keuangan
               usaha Anda. Setiap rekomendasi dilengkapi dengan evidence,
               assumptions, dan limitations untuk transparansi penuh.
@@ -201,26 +201,26 @@ export default function RecommendationsPage() {
 
         <div className="grid grid-cols-3 gap-4 mt-5 pt-5 border-t border-white/10">
           <div>
-            <p className="text-xs text-white/60 uppercase tracking-wider">
+            <p className="text-xs text-white/70 uppercase tracking-wider">
               Prioritas Tinggi
             </p>
-            <p className="text-2xl font-serif font-bold mt-1">
+            <p className="financial-number text-2xl font-bold mt-1">
               {highPriorityCount}
             </p>
           </div>
           <div>
-            <p className="text-xs text-white/60 uppercase tracking-wider">
+            <p className="text-xs text-white/70 uppercase tracking-wider">
               Prioritas Sedang
             </p>
-            <p className="text-2xl font-serif font-bold mt-1">
+            <p className="financial-number text-2xl font-bold mt-1">
               {mediumPriorityCount}
             </p>
           </div>
           <div>
-            <p className="text-xs text-white/60 uppercase tracking-wider">
+            <p className="text-xs text-white/70 uppercase tracking-wider">
               Prioritas Rendah
             </p>
-            <p className="text-2xl font-serif font-bold mt-1">
+            <p className="financial-number text-2xl font-bold mt-1">
               {lowPriorityCount}
             </p>
           </div>
@@ -228,7 +228,7 @@ export default function RecommendationsPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 text-sm text-[#666A61]">
+        <div className="flex items-center gap-2 text-sm text-gray-600">
           <Filter className="w-4 h-4" />
           <span className="font-medium">Filter:</span>
         </div>
@@ -262,7 +262,7 @@ export default function RecommendationsPage() {
             Rendah ({lowPriorityCount})
           </Button>
         </div>
-        <div className="h-6 w-px bg-[#EBE5DC]"></div>
+        <div className="h-6 w-px bg-gray-200"></div>
         <div className="flex gap-2">
           <Button
             variant={filterStatus === "all" ? "primary" : "ghost"}
@@ -299,15 +299,15 @@ export default function RecommendationsPage() {
       </div>
 
       {filteredRecommendations.length === 0 && (
-        <div className="bg-white rounded-2xl border border-[#EBE5DC]/70 shadow-[0_2px_16px_rgba(39,52,32,0.03)] p-8 text-center">
+        <div className="bg-white rounded-2xl border border-gray-200/60 shadow-premium p-8 text-center hover:border-emerald-200 hover:shadow-md transition-all">
           <div className="max-w-md mx-auto">
-            <div className="w-16 h-16 bg-[#FAF7F2] rounded-full flex items-center justify-center mx-auto mb-4">
-              <Filter className="w-8 h-8 text-[#7E8379]" />
+            <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Filter className="w-8 h-8 text-white" />
             </div>
-            <h3 className="text-lg font-serif font-semibold text-[#1F241D] mb-2">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
               Tidak Ada Rekomendasi
             </h3>
-            <p className="text-sm text-[#7E8379]">
+            <p className="text-sm text-gray-600">
               Tidak ada rekomendasi yang sesuai dengan filter yang dipilih.
             </p>
           </div>
