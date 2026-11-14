@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { DataQualityBadge } from "@/components/shared/DataQualityBadge";
 import { RiskLevelBadge } from "@/components/shared/RiskLevelBadge";
+import { useFinancialSummary } from "@/hooks/use-financial-summary";
+import { getDateRangeForPeriod, type PeriodType } from "@/lib/date-utils";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { Alert } from "@/components/ui/Alert";
 import {
   DollarSign,
   TrendingUp,
@@ -20,41 +24,48 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-// Mock data - akan diganti dengan API call
-const mockData = {
-  period: {
-    from: "2026-01-01",
-    to: "2026-01-31",
-  },
-  currency: "IDR" as const,
-  data_quality: {
-    status: "usable" as const,
-    warnings: ["Data pembukaan saldo belum lengkap"],
-  },
-  formula_version: "1.0.0",
-  generated_at: new Date().toISOString(),
-  metrics: {
-    net_revenue: {
-      value: "125000000",
-      status: "available" as const,
-    },
-    net_profit: {
-      value: "35000000",
-      status: "available" as const,
-    },
-    net_cash_flow: {
-      value: "42000000",
-      status: "available" as const,
-    },
-    gross_margin: {
-      value: 35.5,
-      status: "available" as const,
-    },
-  },
-};
-
 export default function DashboardPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState("MTD");
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>("MTD");
+
+  // Get date range based on selected period
+  const dateRange = useMemo(() => getDateRangeForPeriod(selectedPeriod), [selectedPeriod]);
+
+  // Fetch financial summary from API
+  const { data, isLoading, error } = useFinancialSummary(dateRange);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <LoadingSpinner size="lg" />
+          <p className="mt-4 text-sm text-gray-600">Memuat data finansial...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="error">
+          Gagal memuat data finansial. Pastikan backend berjalan dan coba refresh halaman.
+        </Alert>
+      </div>
+    );
+  }
+
+  // No data state
+  if (!data) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="warning">
+          Tidak ada data finansial untuk periode ini.
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -67,7 +78,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <Clock className="w-4 h-4" />
             <span>
-              {mockData.period.from} - {mockData.period.to}
+              {data.period.from} - {data.period.to}
             </span>
           </div>
         </div>
@@ -75,7 +86,7 @@ export default function DashboardPage() {
         {/* Period Selector & Data Quality */}
         <div className="flex items-center gap-3">
           <div className="inline-flex bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
-            {["MTD", "QTD", "YTD"].map((period) => (
+            {(["MTD", "QTD", "YTD"] as PeriodType[]).map((period) => (
               <button
                 key={period}
                 onClick={() => setSelectedPeriod(period)}
@@ -89,12 +100,12 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
-          <DataQualityBadge status={mockData.data_quality.status} />
+          <DataQualityBadge status={data.data_quality.status} />
         </div>
       </div>
 
       {/* Data Quality Warning */}
-      {mockData.data_quality.warnings && mockData.data_quality.warnings.length > 0 && (
+      {data.data_quality.warnings && data.data_quality.warnings.length > 0 && (
         <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex gap-3">
             <div className="flex-shrink-0">
@@ -107,7 +118,7 @@ export default function DashboardPage() {
                 Peringatan Kualitas Data
               </h4>
               <ul className="text-sm text-amber-800 space-y-1">
-                {mockData.data_quality.warnings.map((warning, idx) => (
+                {data.data_quality.warnings.map((warning, idx) => (
                   <li key={idx} className="flex items-start gap-2">
                     <span className="text-amber-500 mt-0.5">•</span>
                     <span>{warning}</span>
@@ -123,8 +134,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <KPICard
           title="Pendapatan Bersih"
-          value={mockData.metrics.net_revenue}
-          currency={mockData.currency}
+          value={data.metrics.net_revenue}
+          currency={data.currency}
           icon={<DollarSign className="w-5 h-5 text-white" strokeWidth={2.5} />}
           iconBg="bg-gradient-to-br from-emerald-600 to-emerald-700"
           trend={{ value: 12.5, label: "vs bulan lalu" }}
@@ -134,8 +145,8 @@ export default function DashboardPage() {
 
         <KPICard
           title="Laba Bersih"
-          value={mockData.metrics.net_profit}
-          currency={mockData.currency}
+          value={data.metrics.net_profit}
+          currency={data.currency}
           icon={<TrendingUp className="w-5 h-5 text-white" strokeWidth={2.5} />}
           iconBg="bg-gradient-to-br from-blue-600 to-blue-700"
           trend={{ value: 8.3, label: "vs bulan lalu" }}
@@ -145,8 +156,8 @@ export default function DashboardPage() {
 
         <KPICard
           title="Arus Kas Bersih"
-          value={mockData.metrics.net_cash_flow}
-          currency={mockData.currency}
+          value={data.metrics.net_cash_flow}
+          currency={data.currency}
           icon={<Wallet className="w-5 h-5 text-white" strokeWidth={2.5} />}
           iconBg="bg-gradient-to-br from-violet-600 to-violet-700"
           trend={{ value: 9.6, label: "vs bulan lalu" }}
