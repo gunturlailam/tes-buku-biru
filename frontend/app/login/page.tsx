@@ -8,41 +8,27 @@ import { Alert } from "@/components/ui/Alert";
 import Link from "next/link";
 import { Eye, EyeOff, ArrowRight } from "lucide-react";
 import { authApi } from "@/features/auth/api/auth-api";
-<<<<<<< HEAD
 import { saveAccessToken, getAccessToken } from "@/lib/auth";
-=======
-import { saveAccessToken, clearAccessToken, getAccessToken } from "@/lib/auth";
->>>>>>> 6641927188a89ae036d3988f0f68d2b1a79f537c
 import { getErrorMessage } from "@/lib/api-client";
 import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
 
-  // Redirect ke dashboard jika sudah login
   useEffect(() => {
     if (getAccessToken()) {
       router.replace("/dashboard");
     }
   }, [router]);
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     remember: false,
   });
-
-  // Clear any stale token when landing on login page
-  useEffect(() => {
-    // If user already has valid token and is redirected to login, clear it
-    // This ensures fresh login without stale token interference
-    if (getAccessToken()) {
-      clearAccessToken();
-    }
-  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -101,12 +87,8 @@ export default function LoginPage() {
             src="/justice-statue.webp"
             alt="Justice statue decoration"
             fill
-<<<<<<< HEAD
             className="object-contain object-bottom"
             priority
-=======
-            className="object-contain object-center"
->>>>>>> 6641927188a89ae036d3988f0f68d2b1a79f537c
             unoptimized
           />
         </div>
