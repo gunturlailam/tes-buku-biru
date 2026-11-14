@@ -37,17 +37,18 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiErrorResponse>) => {
     if (process.env.NEXT_PUBLIC_APP_ENV === "development") {
-      console.error("[API Error Response]", {
+      const errorDetails = {
         status: error.response?.status,
         statusText: error.response?.statusText,
-        data: error.response?.data,
-        config: {
-          url: error.config?.url,
-          method: error.config?.method,
-          params: error.config?.params,
-        },
-        message: error.message,
-      });
+        message: error.response?.data?.error?.message || error.message,
+        url: error.config?.url,
+        method: error.config?.method,
+      };
+      
+      // Only log if there's actual error data
+      if (error.response?.status && error.response?.status >= 400) {
+        console.warn("[API Error Response]", errorDetails);
+      }
     }
 
     if (error.response?.status === 401 && typeof window !== "undefined") {
@@ -75,8 +76,10 @@ export interface ApiErrorResponse {
 
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    const apiError = error.response?.data as ApiErrorResponse | undefined;
-    return apiError?.error?.message || error.message;
+    const apiError = error.response?.data as
+      | (ApiErrorResponse & { detail?: string })
+      | undefined;
+    return apiError?.error?.message || apiError?.detail || error.message;
   }
 
   if (error instanceof Error) {

@@ -13,6 +13,9 @@ import {
   Sparkles,
   ArrowUpRight,
   Gauge,
+  Upload,
+  Scale,
+  Database,
 } from "lucide-react";
 
 const navigation = [
@@ -25,6 +28,21 @@ const navigation = [
     name: "Transaksi",
     href: "/transactions",
     icon: Receipt,
+  },
+  {
+    name: "Import Data",
+    href: "/imports",
+    icon: Upload,
+  },
+  {
+    name: "Neraca & Periode",
+    href: "/balance-sheet",
+    icon: Scale,
+  },
+  {
+    name: "Master Data",
+    href: "/master-data",
+    icon: Database,
   },
   {
     name: "Laporan",

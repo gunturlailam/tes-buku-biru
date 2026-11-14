@@ -90,7 +90,129 @@ class ImportConfirmItem(BaseModel):
     account_id: Optional[int] = None
 
 class ImportConfirmIn(BaseModel):
-    transactions: List[ImportConfirmItem]
+    batch_id: int
+    transactions: Optional[List[ImportConfirmItem]] = None
+
+class BalanceSnapshotLineIn(BaseModel):
+    account_id: int
+    amount: Decimal = Field(max_digits=18, decimal_places=2)
+
+class BalanceSnapshotCreate(BaseModel):
+    as_of_date: date
+    status: Literal["draft", "final"] = "draft"
+    notes: Optional[str] = None
+    lines: List[BalanceSnapshotLineIn] = Field(min_length=1)
+
+class BalanceSnapshotUpdate(BaseModel):
+    status: Optional[Literal["draft", "final"]] = None
+    notes: Optional[str] = None
+    lines: Optional[List[BalanceSnapshotLineIn]] = None
+
+class AccountingPeriodCreate(BaseModel):
+    period_from: date
+    period_to: date
+
+class ReceivableCreate(BaseModel):
+    customer_name: str = Field(min_length=1)
+    invoice_number: Optional[str] = None
+    invoice_date: date
+    due_date: date
+    amount: Decimal = Field(gt=0, max_digits=18, decimal_places=2)
+    paid_amount: Decimal = Field(default=Decimal("0"), ge=0, max_digits=18, decimal_places=2)
+    status: Literal["open", "partial", "paid", "overdue", "written_off"] = "open"
+
+class ReceivableUpdate(BaseModel):
+    customer_name: Optional[str] = Field(None, min_length=1)
+    invoice_number: Optional[str] = None
+    invoice_date: Optional[date] = None
+    due_date: Optional[date] = None
+    amount: Optional[Decimal] = Field(None, gt=0, max_digits=18, decimal_places=2)
+    paid_amount: Optional[Decimal] = Field(None, ge=0, max_digits=18, decimal_places=2)
+    status: Optional[Literal["open", "partial", "paid", "overdue", "written_off"]] = None
+
+class PayableCreate(BaseModel):
+    supplier_name: str = Field(min_length=1)
+    bill_number: Optional[str] = None
+    bill_date: date
+    due_date: date
+    amount: Decimal = Field(gt=0, max_digits=18, decimal_places=2)
+    paid_amount: Decimal = Field(default=Decimal("0"), ge=0, max_digits=18, decimal_places=2)
+    status: Literal["open", "partial", "paid", "overdue"] = "open"
+
+class PayableUpdate(BaseModel):
+    supplier_name: Optional[str] = Field(None, min_length=1)
+    bill_number: Optional[str] = None
+    bill_date: Optional[date] = None
+    due_date: Optional[date] = None
+    amount: Optional[Decimal] = Field(None, gt=0, max_digits=18, decimal_places=2)
+    paid_amount: Optional[Decimal] = Field(None, ge=0, max_digits=18, decimal_places=2)
+    status: Optional[Literal["open", "partial", "paid", "overdue"]] = None
+
+class InventoryItemCreate(BaseModel):
+    sku: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    unit: str = Field(default="pcs", min_length=1)
+    cost_price: Decimal = Field(default=Decimal("0"), ge=0, max_digits=18, decimal_places=2)
+    quantity_on_hand: Decimal = Field(default=Decimal("0"), ge=0, max_digits=18, decimal_places=4)
+    reorder_point: Optional[Decimal] = Field(None, ge=0, max_digits=18, decimal_places=4)
+    is_active: bool = True
+
+class InventoryItemUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1)
+    unit: Optional[str] = Field(None, min_length=1)
+    cost_price: Optional[Decimal] = Field(None, ge=0, max_digits=18, decimal_places=2)
+    quantity_on_hand: Optional[Decimal] = Field(None, ge=0, max_digits=18, decimal_places=4)
+    reorder_point: Optional[Decimal] = Field(None, ge=0, max_digits=18, decimal_places=4)
+    is_active: Optional[bool] = None
+
+class InventoryMovementCreate(BaseModel):
+    movement_date: date
+    movement_type: Literal["in", "out", "adjustment"]
+    quantity: Decimal = Field(max_digits=18, decimal_places=4)
+    unit_cost: Decimal = Field(default=Decimal("0"), ge=0, max_digits=18, decimal_places=2)
+    reference: Optional[str] = None
+
+class FixedAssetCreate(BaseModel):
+    name: str = Field(min_length=1)
+    asset_category: Optional[str] = None
+    acquisition_date: date
+    acquisition_cost: Decimal = Field(gt=0, max_digits=18, decimal_places=2)
+    accumulated_depreciation: Decimal = Field(default=Decimal("0"), ge=0, max_digits=18, decimal_places=2)
+    useful_life_months: Optional[int] = Field(None, ge=1)
+    salvage_value: Decimal = Field(default=Decimal("0"), ge=0, max_digits=18, decimal_places=2)
+    status: Literal["active", "disposed"] = "active"
+
+class FixedAssetUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1)
+    asset_category: Optional[str] = None
+    acquisition_date: Optional[date] = None
+    acquisition_cost: Optional[Decimal] = Field(None, gt=0, max_digits=18, decimal_places=2)
+    accumulated_depreciation: Optional[Decimal] = Field(None, ge=0, max_digits=18, decimal_places=2)
+    useful_life_months: Optional[int] = Field(None, ge=1)
+    salvage_value: Optional[Decimal] = Field(None, ge=0, max_digits=18, decimal_places=2)
+    status: Optional[Literal["active", "disposed"]] = None
+
+class LoanCreate(BaseModel):
+    lender: str = Field(min_length=1)
+    loan_type: Literal["short_term", "term_loan"] = "term_loan"
+    principal: Decimal = Field(gt=0, max_digits=18, decimal_places=2)
+    interest_rate: Decimal = Field(default=Decimal("0"), ge=0, le=100, max_digits=8, decimal_places=4)
+    term_months: int = Field(ge=1)
+    start_date: date
+    outstanding_principal: Decimal = Field(ge=0, max_digits=18, decimal_places=2)
+    monthly_installment: Optional[Decimal] = Field(None, ge=0, max_digits=18, decimal_places=2)
+    status: Literal["active", "paid", "defaulted"] = "active"
+
+class LoanUpdate(BaseModel):
+    lender: Optional[str] = Field(None, min_length=1)
+    loan_type: Optional[Literal["short_term", "term_loan"]] = None
+    principal: Optional[Decimal] = Field(None, gt=0, max_digits=18, decimal_places=2)
+    interest_rate: Optional[Decimal] = Field(None, ge=0, le=100, max_digits=8, decimal_places=4)
+    term_months: Optional[int] = Field(None, ge=1)
+    start_date: Optional[date] = None
+    outstanding_principal: Optional[Decimal] = Field(None, ge=0, max_digits=18, decimal_places=2)
+    monthly_installment: Optional[Decimal] = Field(None, ge=0, max_digits=18, decimal_places=2)
+    status: Optional[Literal["active", "paid", "defaulted"]] = None
 
 class OpeningBalanceCreate(BaseModel):
     account_id: int

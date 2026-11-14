@@ -4,14 +4,14 @@ import { Bell, Calendar, Search, User } from "lucide-react";
 
 export function Navbar() {
   return (
-    <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 pb-4 border-b border-[#e5e5e5]">
+    <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4 pb-3 border-b border-[#e5e5e5]">
       {/* Greeting */}
       <div>
-        <h2 className="text-2xl lg:text-3xl font-bold text-[#1f1f1f] flex items-center gap-1.5 mb-1">
+        <h2 className="text-xl lg:text-2xl font-bold text-[#1f1f1f] flex items-center gap-1.5 mb-0.5">
           <span>Halo, User!</span>
-          <span className="text-2xl">👋</span>
+          <span className="text-xl">👋</span>
         </h2>
-        <p className="text-xs lg:text-sm text-[#666666]">
+        <p className="text-xs text-[#666666]">
           Berikut ringkasan kesehatan usaha Anda hari ini
         </p>
       </div>

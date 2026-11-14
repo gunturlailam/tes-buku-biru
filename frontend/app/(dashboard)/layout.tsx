@@ -1,9 +1,7 @@
 import { Suspense } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Navbar } from "@/components/layout/Navbar";
-import { ProtectedLayoutWrapper } from "@/components/layout/ProtectedLayoutWrapper";
-
-export const instant = false;
+import { AuthGuard } from "@/components/auth/AuthGuard";
 
 export default function DashboardLayout({
   children,
@@ -11,7 +9,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ProtectedLayoutWrapper>
+    <AuthGuard>
       <div className="min-h-screen bg-gray-50 flex">
         <Suspense fallback={<div className="w-60 flex-shrink-0 bg-white border-r" />}>
           <Sidebar />
@@ -25,6 +23,6 @@ export default function DashboardLayout({
           </Suspense>
         </main>
       </div>
-    </ProtectedLayoutWrapper>
+    </AuthGuard>
   );
 }
