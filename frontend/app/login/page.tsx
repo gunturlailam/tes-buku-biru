@@ -7,6 +7,9 @@ import { Input } from "@/components/ui/Input";
 import { Alert } from "@/components/ui/Alert";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
+import { authApi } from "@/features/auth/api/auth-api";
+import { saveAccessToken } from "@/lib/auth";
+import { getErrorMessage } from "@/lib/api-client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,18 +42,15 @@ export default function LoginPage() {
     }
 
     setIsLoading(true);
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // Mock authentication
-    if (
-      formData.email === "demo@profitai.id" &&
-      formData.password === "demo123"
-    ) {
-      router.push("/dashboard");
-    } else {
-      setError("Email atau password salah. Gunakan demo@profitai.id / demo123");
+    try {
+      const { access_token } = await authApi.login({
+        email: formData.email,
+        password: formData.password,
+      });
+      saveAccessToken(access_token, formData.remember);
+      router.replace("/dashboard");
+    } catch (error) {
+      setError(getErrorMessage(error));
       setIsLoading(false);
     }
   };
@@ -203,11 +203,11 @@ export default function LoginPage() {
             <div className="space-y-1 text-xs text-[#7E8379]">
               <p>
                 <span className="font-medium text-[#1F241D]">Email:</span>{" "}
-                demo@profitai.id
+                demo@profitai.local
               </p>
               <p>
                 <span className="font-medium text-[#1F241D]">Password:</span>{" "}
-                demo123
+                Demo12345!
               </p>
             </div>
           </div>

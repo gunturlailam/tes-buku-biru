@@ -19,6 +19,8 @@ This document defines conventions and proposed resource boundaries. Exact paths 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/health` | Service health |
+| POST | `/api/v1/auth/register` | Register a user and organization |
+| POST | `/api/v1/auth/login` | Exchange email/password for a bearer token |
 | GET | `/api/v1/me` | Current user |
 | GET/POST | `/api/v1/organizations` | List/create organization |
 | GET/PATCH | `/api/v1/organizations/{id}` | Organization profile |
@@ -36,6 +38,11 @@ This document defines conventions and proposed resource boundaries. Exact paths 
 | GET | `/api/v1/recommendations` | Recommendation list |
 
 Do not implement all endpoints at once. P0 endpoints are health, auth/org, transaction CRUD, and financial summary.
+
+Registration accepts `email`, `password` (minimum 8 characters), `full_name`,
+`organization_name`, and optional `industry`. Login returns `access_token` and
+`token_type`; send the token on protected requests as
+`Authorization: Bearer <access_token>`.
 
 ## 3. Query parameters
 

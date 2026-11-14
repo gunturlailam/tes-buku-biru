@@ -206,7 +206,26 @@ class Recommendation(Base):
     user_feedback = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-# 17. audit_events: important actor/action/time metadata
+# 17. forecast_backtests: walk-forward validation results and gate status
+class ForecastBacktest(Base):
+    __tablename__ = "forecast_backtests"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    model_version = Column(Text, nullable=False)
+    period_unit = Column(Text, nullable=False, default="month")
+    horizon = Column(Integer, nullable=False)
+    data_points = Column(Integer, nullable=False)
+    training_window_from = Column(Date, nullable=True)
+    training_window_to = Column(Date, nullable=True)
+    aggregate_metrics = Column(JSON, nullable=True)   # mae, bias, wape, smape, mase
+    baseline_metrics = Column(JSON, nullable=True)    # naive_mae, model_vs_naive
+    gate_passed = Column(Boolean, nullable=False, default=False)
+    gate_reason = Column(Text, nullable=True)
+    status = Column(Text, nullable=False, default="passed")  # passed, failed, insufficient_data
+    folds_summary = Column(JSON, nullable=True)       # list of fold results
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+# 18. audit_events: important actor/action/time metadata
 class AuditEvent(Base):
     __tablename__ = "audit_events"
     id = Column(Integer, primary_key=True, autoincrement=True)

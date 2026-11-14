@@ -15,6 +15,7 @@ class RegisterIn(BaseModel):
     password: str = Field(min_length=8)
     full_name: str
     organization_name: str
+    industry: Optional[str] = None
 
 class LoginIn(BaseModel):
     email: str
@@ -112,3 +113,8 @@ class RecommendationUpdate(BaseModel):
 class RiskRuleUpdate(BaseModel):
     threshold_config: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = None
+
+class ForecastBacktestCreate(BaseModel):
+    horizon: int = Field(default=3, ge=1, le=12)
+    period_unit: Literal["day", "week", "month"] = "month"
+    min_train_periods: int = Field(default=3, ge=2, le=24)

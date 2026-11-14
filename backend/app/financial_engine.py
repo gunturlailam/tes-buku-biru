@@ -518,3 +518,210 @@ def calculate_cash_flow_forecast(transactions, horizon=3, period_unit="month"):
         }
     }
 
+
+
+# ==========================================
+# WALK-FORWARD BACKTEST (Phase 5 / P2)
+# ==========================================
+
+def run_walk_forward_backtest(transactions, horizon=3, period_unit="month", min_train_periods=3):
+    """
+    Walk-forward / rolling-origin validation untuk baseline Moving Average forecast.
+
+    Metodologi sesuai FINANCIAL_AI_METHODOLOGY.md §7:
+    - Tidak menggunakan random shuffle pada time-series.
+    - Setiap fold: train pada periode [0..t-1], prediksi periode [t..t+horizon-1].
+    - Metrik: MAE, WAPE, sMAPE, Bias, MASE.
+    - Model hanya di-release jika melewati gate (beat naive baseline, bias acceptable).
+    """
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    # Agregasi per bulan
+    monthly_flows = defaultdict(lambda: ZERO)
+    for tx in transactions:
+        if tx.status != "posted":
+            continue
+        sign = Decimal(-1) if tx.reversal_of_id else Decimal(1)
+        month_key = tx.transaction_date.strftime("%Y-%m")
+        if tx.tx_type in ("income", "loan_received", "owner_contribution"):
+            monthly_flows[month_key] += sign * tx.amount
+        elif tx.tx_type in ("expense", "refund", "loan_repayment", "owner_draw"):
+            monthly_flows[month_key] -= sign * tx.amount
+
+    sorted_months = sorted(monthly_flows.keys())
+    n = len(sorted_months)
+
+    # Gate: minimal 8 titik data sesuai metodologi
+    if n < 8:
+        return {
+            "status": "insufficient_data",
+            "model_version": "baseline-ma-v1",
+            "period_unit": period_unit,
+            "horizon": horizon,
+            "data_points": n,
+            "minimum_required": 8,
+            "message": f"Data historis hanya {n} periode. Minimum 8 periode diperlukan untuk backtest.",
+            "folds": [],
+            "aggregate_metrics": {},
+            "baseline_metrics": {},
+            "gate_passed": False,
+            "gate_reason": "Jumlah titik data di bawah minimum metodologi (8 periode).",
+            "created_at": now_iso
+        }
+
+    actual_values = [monthly_flows[m] for m in sorted_months]
+
+    # --- Rolling-origin folds ---
+    folds = []
+    all_errors = []          # MA model errors
+    all_naive_errors = []    # Naive baseline errors
+    all_actuals = []
+    all_predicted = []
+
+    for t in range(min_train_periods, n - horizon + 1):
+        train = actual_values[:t]
+        test = actual_values[t:t + horizon]
+
+        # MA prediction: rata-rata 3 periode terakhir train
+        window = train[-3:] if len(train) >= 3 else train
+        ma_pred = sum(window) / Decimal(len(window))
+
+        # Naive baseline: nilai terakhir train diulang
+        naive_pred = train[-1]
+
+        fold_results = []
+        fold_naive_results = []
+        for step_idx, actual in enumerate(test):
+            err_ma = ma_pred - actual
+            err_naive = naive_pred - actual
+            fold_results.append({
+                "step": step_idx + 1,
+                "period": sorted_months[t + step_idx],
+                "predicted": float(ma_pred),
+                "actual": float(actual),
+                "error": float(err_ma),
+                "abs_error": float(abs(err_ma))
+            })
+            fold_naive_results.append(float(abs(err_naive)))
+            all_errors.append(err_ma)
+            all_naive_errors.append(abs(err_naive))
+            all_actuals.append(actual)
+            all_predicted.append(ma_pred)
+
+        folds.append({
+            "fold_index": t - min_train_periods,
+            "train_periods": sorted_months[:t],
+            "test_periods": sorted_months[t:t + horizon],
+            "ma_prediction": float(ma_pred),
+            "naive_prediction": float(naive_pred),
+            "steps": fold_results
+        })
+
+    if not all_errors:
+        return {
+            "status": "insufficient_folds",
+            "model_version": "baseline-ma-v1",
+            "data_points": n,
+            "gate_passed": False,
+            "gate_reason": "Tidak cukup fold yang dapat dibentuk dari data yang tersedia.",
+            "folds": [],
+            "aggregate_metrics": {},
+            "created_at": now_iso
+        }
+
+    # --- Hitung metrik agregat ---
+    n_obs = len(all_errors)
+    mae = sum(abs(e) for e in all_errors) / Decimal(n_obs)
+    bias = sum(all_errors) / Decimal(n_obs)
+
+    total_actual = sum(abs(a) for a in all_actuals)
+    wape = (sum(abs(e) for e in all_errors) / total_actual * 100) if total_actual != ZERO else None
+
+    # sMAPE
+    smape_vals = []
+    for pred, act in zip(all_predicted, all_actuals):
+        denom = (abs(act) + abs(pred)) / 2
+        if denom != ZERO:
+            smape_vals.append(abs(pred - act) / denom * 100)
+    smape = sum(smape_vals) / Decimal(len(smape_vals)) if smape_vals else None
+
+    # MASE: MAE model / MAE naive in-sample
+    # In-sample naive: naive = nilai periode sebelumnya
+    naive_mae_insample = sum(
+        abs(actual_values[i] - actual_values[i - 1])
+        for i in range(1, n)
+    ) / Decimal(n - 1) if n > 1 else None
+
+    mase = (mae / naive_mae_insample) if (naive_mae_insample and naive_mae_insample != ZERO) else None
+
+    # Metrik naive baseline (dari folds)
+    naive_mae = sum(all_naive_errors) / Decimal(len(all_naive_errors)) if all_naive_errors else None
+
+    # --- Gate check ---
+    gate_passed = True
+    gate_reasons = []
+
+    # 1. MA harus lebih baik atau sebanding dengan naive (MAE)
+    if naive_mae is not None and mae > naive_mae * Decimal("1.05"):
+        gate_passed = False
+        gate_reasons.append(
+            f"MAE model ({float(mae):.2f}) lebih buruk dari naive baseline ({float(naive_mae):.2f}). "
+            "Model tidak memenuhi gate improvement."
+        )
+
+    # 2. Bias tidak boleh ekstrem (>50% dari MAE)
+    if mae != ZERO and abs(bias) > mae * Decimal("0.50"):
+        gate_passed = False
+        gate_reasons.append(
+            f"Bias ({float(bias):.2f}) terlalu besar relatif terhadap MAE ({float(mae):.2f}). "
+            "Forecast memiliki kecenderungan sistematis yang tidak acceptable."
+        )
+
+    # 3. Minimal data points cukup
+    if n < 8:
+        gate_passed = False
+        gate_reasons.append("Jumlah data point di bawah minimum 8 periode.")
+
+    gate_reason_text = " | ".join(gate_reasons) if gate_reasons else "Semua kriteria gate terpenuhi."
+
+    aggregate_metrics = {
+        "mae": round(float(mae), 2),
+        "bias": round(float(bias), 2),
+        "wape_pct": round(float(wape), 2) if wape is not None else None,
+        "smape_pct": round(float(smape), 2) if smape is not None else None,
+        "mase": round(float(mase), 4) if mase is not None else None,
+        "n_observations": n_obs,
+        "n_folds": len(folds)
+    }
+
+    baseline_metrics = {
+        "naive_mae": round(float(naive_mae), 2) if naive_mae is not None else None,
+        "model_vs_naive": (
+            "improved" if (naive_mae and mae <= naive_mae)
+            else "worse" if naive_mae else "unavailable"
+        )
+    }
+
+    return {
+        "status": "passed" if gate_passed else "failed",
+        "model_version": "baseline-ma-v1",
+        "baseline_model": "3-month moving average",
+        "period_unit": period_unit,
+        "horizon": horizon,
+        "data_points": n,
+        "training_window": {
+            "from": sorted_months[0],
+            "to": sorted_months[-1]
+        },
+        "aggregate_metrics": aggregate_metrics,
+        "baseline_metrics": baseline_metrics,
+        "gate_passed": gate_passed,
+        "gate_reason": gate_reason_text,
+        "limitations": [
+            "Validasi berbasis Moving Average deterministik, belum mencakup model musiman.",
+            "Backtest bukan jaminan performa masa depan; representativitas window sangat bergantung pada data historis.",
+            "Jika gate tidak terpenuhi, forecast tidak boleh digunakan."
+        ],
+        "folds": folds,
+        "created_at": now_iso
+    }

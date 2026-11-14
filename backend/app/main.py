@@ -16,8 +16,10 @@ from .financial_engine import (
     calculate_financial_health,
     generate_recommendations,
     calculate_cash_flow_forecast,
+    run_walk_forward_backtest,
     money,
 )
+from .llm_adapter import generate_explanation
 
 app = FastAPI(title="ProfitAI API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"],
@@ -90,7 +92,7 @@ def register(p: schemas.RegisterIn, request: Request, db=Depends(get_db)):
     org = models.Organization(name=p.organization_name)
     db.add(org); db.flush()
     db.add(models.Membership(organization_id=org.id, user_id=user.id, role="owner"))
-    db.add(models.BusinessProfile(organization_id=org.id))
+    db.add(models.BusinessProfile(organization_id=org.id, industry=p.industry))
     for name, t in DEFAULT_CATEGORIES:
         db.add(models.Category(organization_id=org.id, name=name, tx_type=t))
     log_audit(db, org.id, user.id, "USER_REGISTERED", "users", user.id, {"email": email})
@@ -664,6 +666,53 @@ def list_forecasts(org_id=Depends(get_current_org), db=Depends(get_db)):
         "created_at": str(r.created_at)
     } for r in runs]
 
+@app.get("/api/v1/forecasts/backtests")
+def list_forecast_backtests(limit: int = 20, org_id=Depends(get_current_org), db=Depends(get_db)):
+    """Daftar hasil backtest yang pernah dijalankan untuk organisasi ini."""
+    rows = db.query(models.ForecastBacktest).filter_by(
+        organization_id=org_id
+    ).order_by(models.ForecastBacktest.id.desc()).limit(limit).all()
+    return [{
+        "id": r.id,
+        "model_version": r.model_version,
+        "horizon": r.horizon,
+        "period_unit": r.period_unit,
+        "data_points": r.data_points,
+        "gate_passed": r.gate_passed,
+        "gate_reason": r.gate_reason,
+        "status": r.status,
+        "aggregate_metrics": r.aggregate_metrics,
+        "baseline_metrics": r.baseline_metrics,
+        "created_at": str(r.created_at)
+    } for r in rows]
+
+@app.get("/api/v1/forecasts/backtests/{backtest_id}")
+def get_forecast_backtest(backtest_id: int, org_id=Depends(get_current_org), db=Depends(get_db)):
+    """Detail lengkap hasil backtest termasuk semua fold."""
+    r = db.query(models.ForecastBacktest).filter_by(
+        id=backtest_id, organization_id=org_id
+    ).first()
+    if not r:
+        raise HTTPException(404, "Backtest tidak ditemukan")
+    return {
+        "id": r.id,
+        "model_version": r.model_version,
+        "horizon": r.horizon,
+        "period_unit": r.period_unit,
+        "data_points": r.data_points,
+        "training_window": {
+            "from": str(r.training_window_from) if r.training_window_from else None,
+            "to": str(r.training_window_to) if r.training_window_to else None,
+        },
+        "gate_passed": r.gate_passed,
+        "gate_reason": r.gate_reason,
+        "status": r.status,
+        "aggregate_metrics": r.aggregate_metrics,
+        "baseline_metrics": r.baseline_metrics,
+        "folds": r.folds_summary,
+        "created_at": str(r.created_at)
+    }
+
 @app.get("/api/v1/forecasts/{forecast_id}")
 def get_forecast(forecast_id: int, org_id=Depends(get_current_org), db=Depends(get_db)):
     r = db.query(models.ForecastRun).filter_by(id=forecast_id, organization_id=org_id).first()
@@ -675,6 +724,67 @@ def get_forecast(forecast_id: int, org_id=Depends(get_current_org), db=Depends(g
         "status": r.status, "evaluation": r.evaluation_metrics, "predictions": r.predictions,
         "created_at": str(r.created_at)
     }
+
+# ==========================================
+# 9b. FORECAST BACKTEST (walk-forward validation)
+# ==========================================
+@app.post("/api/v1/forecasts/backtest", status_code=201)
+def run_forecast_backtest(p: schemas.ForecastBacktestCreate, user=Depends(get_current_user),
+                          org_id=Depends(get_current_org), db=Depends(get_db)):
+    """
+    Jalankan walk-forward backtest pada data historis transaksi.
+
+    - Memvalidasi apakah model Moving Average layak digunakan untuk forecast.
+    - Metrik: MAE, WAPE, sMAPE, Bias, MASE.
+    - Gate check: model harus beat naive baseline; bias harus acceptable.
+    - Hasil disimpan ke tabel forecast_backtests untuk audit trail.
+    - Sesuai FINANCIAL_AI_METHODOLOGY.md §7: gunakan rolling-origin, bukan random shuffle.
+    """
+    txs = db.query(models.Transaction).filter_by(
+        organization_id=org_id, status="posted"
+    ).order_by(models.Transaction.transaction_date).all()
+
+    result = run_walk_forward_backtest(
+        txs,
+        horizon=p.horizon,
+        period_unit=p.period_unit,
+        min_train_periods=p.min_train_periods
+    )
+
+    # Parsing training window dari result
+    tw = result.get("training_window", {})
+    tw_from = None
+    tw_to = None
+    if tw.get("from"):
+        from datetime import datetime as dt
+        tw_from = dt.strptime(tw["from"], "%Y-%m").date()
+    if tw.get("to"):
+        from datetime import datetime as dt
+        tw_to = dt.strptime(tw["to"], "%Y-%m").date()
+
+    record = models.ForecastBacktest(
+        organization_id=org_id,
+        model_version=result["model_version"],
+        period_unit=p.period_unit,
+        horizon=p.horizon,
+        data_points=result["data_points"],
+        training_window_from=tw_from,
+        training_window_to=tw_to,
+        aggregate_metrics=result.get("aggregate_metrics"),
+        baseline_metrics=result.get("baseline_metrics"),
+        gate_passed=result["gate_passed"],
+        gate_reason=result["gate_reason"],
+        status=result["status"],
+        folds_summary=result.get("folds")
+    )
+    db.add(record)
+    log_audit(db, org_id, user.id, "FORECAST_BACKTEST_RUN", "forecast_backtests", None,
+              {"horizon": p.horizon, "gate_passed": result["gate_passed"], "status": result["status"]})
+    db.commit()
+    db.refresh(record)
+
+    result["id"] = record.id
+    return result
 
 # ==========================================
 # 10. RECOMMENDATIONS
@@ -728,6 +838,49 @@ def update_recommendation(rec_id: int, p: schemas.RecommendationUpdate, user=Dep
     log_audit(db, org_id, user.id, "RECOMMENDATION_FEEDBACK", "recommendations", r.id, {"status": p.status})
     db.commit(); db.refresh(r)
     return {"id": r.id, "status": r.status, "user_feedback": r.user_feedback}
+
+@app.post("/api/v1/recommendations/{rec_id}/explain")
+def explain_recommendation(rec_id: int, user=Depends(get_current_user),
+                           org_id=Depends(get_current_org), db=Depends(get_db)):
+    """
+    Hasilkan penjelasan naratif untuk satu rekomendasi menggunakan LLM adapter.
+
+    - Jika OPENAI_API_KEY dikonfigurasi dan output lolos validasi → source: "llm"
+    - Jika tidak ada API key, LLM gagal, atau output tidak valid → source: "fallback"
+    - Tidak ada angka absolut atau PII yang dikirim ke LLM (privacy guard).
+    - Penjelasan bersifat informatif; bukan saran keuangan, pajak, atau hukum.
+    """
+    r = db.query(models.Recommendation).filter_by(id=rec_id, organization_id=org_id).first()
+    if not r:
+        raise HTTPException(404, "Rekomendasi tidak ditemukan")
+
+    rec_payload = {
+        "rule_id": r.rule_id,
+        "priority": r.priority,
+        "trigger_metrics": r.trigger_metrics,
+        "evidence": r.evidence,
+        "suggested_actions": r.suggested_actions,
+    }
+
+    result = generate_explanation(rec_payload)
+
+    log_audit(db, org_id, user.id, "RECOMMENDATION_EXPLAINED", "recommendations", r.id,
+              {"source": result["source"], "llm_enabled": result["llm_enabled"]})
+    db.commit()
+
+    return {
+        "recommendation_id": rec_id,
+        "rule_id": r.rule_id,
+        "title": r.title,
+        "explanation": result["explanation"],
+        "source": result["source"],
+        "llm_enabled": result["llm_enabled"],
+        "privacy_note": result["privacy_note"],
+        "disclaimer": (
+            "Penjelasan ini dihasilkan secara otomatis dan bersifat informatif. "
+            "Bukan merupakan saran keuangan, pajak, investasi, atau hukum."
+        )
+    }
 
 # ==========================================
 # 11. IMPORT CSV BATCHES & ROWS

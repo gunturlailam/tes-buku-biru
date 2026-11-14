@@ -2,18 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { getAccessToken } from "@/lib/auth";
 
 export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check if user is logged in (mock check)
-    const isLoggedIn = false; // Replace with actual auth check
-
-    if (isLoggedIn) {
-      router.push("/dashboard");
+    if (getAccessToken()) {
+      router.replace("/dashboard");
     } else {
-      router.push("/login");
+      router.replace("/login");
     }
   }, [router]);
 

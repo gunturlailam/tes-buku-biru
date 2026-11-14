@@ -84,8 +84,8 @@ Open [http://localhost:3000](http://localhost:3000)
 ### Demo Credentials
 
 ```
-Email: demo@profitai.id
-Password: demo123
+Email: demo@profitai.local
+Password: Demo12345!
 ```
 
 ## 🧪 Testing
@@ -168,15 +168,14 @@ npm start
 
 ## 🔄 API Integration
 
-Currently using mock data for development. To integrate with real backend:
+Login, registration, and the dashboard authentication check use the backend.
+Some analytics screens still use mock data and are not yet integrated.
 
-1. **Update API client** in `lib/api.ts`
-2. **Replace mock data** in page components
-3. **Configure environment variables**:
+Configure the API URL in `.env.local`:
 
 ```env
 # .env.local
-NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
 ```
 
 Example API integration:

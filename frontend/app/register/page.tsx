@@ -8,6 +8,8 @@ import { Select } from "@/components/ui/Select";
 import { Alert } from "@/components/ui/Alert";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
+import { authApi } from "@/features/auth/api/auth-api";
+import { getErrorMessage } from "@/lib/api-client";
 
 const industryOptions = [
   { value: "", label: "Pilih industri..." },
@@ -30,7 +32,6 @@ export default function RegisterPage() {
     businessName: "",
     fullName: "",
     email: "",
-    phone: "",
     industry: "",
     password: "",
     confirmPassword: "",
@@ -60,8 +61,8 @@ export default function RegisterPage() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError("Password minimal 6 karakter");
+    if (formData.password.length < 8) {
+      setError("Password minimal 8 karakter");
       return;
     }
 
@@ -76,12 +77,20 @@ export default function RegisterPage() {
     }
 
     setIsLoading(true);
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    // Mock success
-    router.push("/login?registered=true");
+    try {
+      await authApi.register({
+        email: formData.email,
+        password: formData.password,
+        full_name: formData.fullName,
+        organization_name: formData.businessName,
+        industry: formData.industry || undefined,
+      });
+      router.push("/login?registered=true");
+    } catch (error) {
+      setError(getErrorMessage(error));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -164,26 +173,15 @@ export default function RegisterPage() {
                   required
                 />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Email"
-                    type="email"
-                    name="email"
-                    placeholder="nama@perusahaan.com"
-                    value={formData.email}
-                    onChange={handleChange}
-                    required
-                  />
-
-                  <Input
-                    label="No. Telepon"
-                    type="tel"
-                    name="phone"
-                    placeholder="08xx xxxx xxxx"
-                    value={formData.phone}
-                    onChange={handleChange}
-                  />
-                </div>
+                <Input
+                  label="Email"
+                  type="email"
+                  name="email"
+                  placeholder="nama@perusahaan.com"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                />
               </div>
             </div>
 
@@ -198,7 +196,7 @@ export default function RegisterPage() {
                     label="Password"
                     type={showPassword ? "text" : "password"}
                     name="password"
-                    placeholder="Minimal 6 karakter"
+                    placeholder="Minimal 8 karakter"
                     value={formData.password}
                     onChange={handleChange}
                     required
