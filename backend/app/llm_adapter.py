@@ -187,6 +187,107 @@ def _call_openai(sanitized_payload: dict) -> Optional[str]:
         return None
 
 
+# ─── Ratio Narrative (LLM opsional) ──────────────────────────────────────────
+
+_RATIO_ALLOWED_FIELDS = {
+    "ratio_code", "ratio_name", "category", "band", "direction", "quality",
+}
+
+
+def _sanitize_ratio_payload(payload: dict) -> dict:
+    """Whitelist ketat: hanya enum/kode, tanpa angka atau identitas."""
+    clean = {}
+    for key in _RATIO_ALLOWED_FIELDS:
+        value = str(payload.get(key, ""))[:80]
+        clean[key] = re.sub(r"\d+", "", value)
+    return clean
+
+
+def _call_openai_ratio(sanitized: dict) -> Optional[str]:
+    try:
+        import openai  # type: ignore
+
+        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        system_prompt = (
+            "Kamu adalah analis keuangan UMKM yang hati-hati. Tulis 2-3 kalimat "
+            "Bahasa Indonesia yang menjelaskan arti rasio dan tindakan yang "
+            "disarankan berdasarkan band dan kualitas data. "
+            "LARANGAN KERAS: jangan menyebut angka, nominal, persentase, nama "
+            "bisnis, atau identitas pengguna; jangan memberi kepastian, saran "
+            "pajak, hukum, atau investasi spesifik."
+        )
+        user_message = (
+            f"Kode rasio: {sanitized['ratio_code']}\n"
+            f"Nama: {sanitized['ratio_name']}\n"
+            f"Kategori: {sanitized['category']}\n"
+            f"Band: {sanitized['band']}\n"
+            f"Arah threshold: {sanitized['direction']}\n"
+            f"Kualitas data: {sanitized['quality']}\n\n"
+            "Tulis penjelasan singkat untuk pemilik usaha:"
+        )
+        response = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+            max_tokens=LLM_MAX_TOKENS,
+            temperature=LLM_TEMPERATURE,
+        )
+        return response.choices[0].message.content.strip()
+    except ImportError:
+        logger.warning("openai package tidak terinstall; ratio narrative memakai fallback.")
+        return None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("LLM ratio narrative gagal: %s — memakai fallback.", exc)
+        return None
+
+
+def generate_ratio_explanation(payload: dict, fallback_text: str) -> dict:
+    """Narasi rasio dengan validasi output dan fallback deterministik."""
+    if not LLM_ENABLED:
+        return {
+            "explanation": fallback_text,
+            "source": "fallback",
+            "llm_enabled": False,
+            "privacy_note": (
+                "LLM tidak aktif. Narasi berasal dari template rule-based. "
+                "Aktifkan dengan mengatur OPENAI_API_KEY."
+            ),
+        }
+
+    sanitized = _sanitize_ratio_payload(payload)
+    raw_output = _call_openai_ratio(sanitized)
+    if raw_output is None:
+        return {
+            "explanation": fallback_text,
+            "source": "fallback",
+            "llm_enabled": True,
+            "privacy_note": "LLM tidak merespons; narasi rule-based digunakan.",
+        }
+
+    is_valid, reason = _validate_llm_output(raw_output)
+    if not is_valid:
+        logger.warning("LLM ratio output gagal validasi (%s); pakai fallback.", reason)
+        return {
+            "explanation": fallback_text,
+            "source": "fallback",
+            "llm_enabled": True,
+            "privacy_note": f"Output LLM tidak lolos validasi ({reason}); narasi rule-based digunakan.",
+        }
+
+    return {
+        "explanation": raw_output,
+        "source": "llm",
+        "llm_enabled": True,
+        "privacy_note": (
+            "Narasi dihasilkan model bahasa. Hanya kode/band/kualitas data yang "
+            "dikirim; nominal dan identitas tidak dikirim. Bukan saran keuangan, "
+            "pajak, atau hukum."
+        ),
+    }
+
+
 # ─── Public Interface ─────────────────────────────────────────────────────────
 
 def generate_explanation(recommendation: dict) -> dict:

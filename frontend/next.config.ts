@@ -24,7 +24,6 @@ const nextConfig: NextConfig = {
   // Experimental optimizations
   experimental: {
     optimizePackageImports: ["@radix-ui/react-*", "lucide-react"],
-    optimizeCss: true,
   },
 };
 

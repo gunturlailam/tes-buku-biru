@@ -1,6 +1,7 @@
 import csv, io, secrets, uuid
 from datetime import date, datetime, timezone
 from decimal import Decimal
+from typing import Optional
 from fastapi import FastAPI, Depends, HTTPException, Query, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
@@ -20,6 +21,9 @@ from .financial_engine import (
     money,
 )
 from .llm_adapter import generate_explanation
+from . import ratio_service
+from . import ratio_narrative
+from .ratio_engine import RATIO_META
 
 app = FastAPI(title="ProfitAI API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"],
@@ -55,6 +59,14 @@ DEFAULT_CATEGORIES = [("Penjualan", "income"), ("Pendapatan Jasa", "income"),
     ("Transfer Antar Akun", "transfer"), ("Setoran Modal", "owner_contribution"),
     ("Penarikan Pemilik", "owner_draw"), ("Pinjaman Masuk", "loan_received"),
     ("Cicilan Pinjaman", "loan_repayment")]
+
+def require_org_role(db, org_id, user, allowed=("owner", "admin")):
+    m = (db.query(models.Membership)
+         .filter_by(organization_id=org_id, user_id=user.id).first())
+    if m is None or m.role not in allowed:
+        raise HTTPException(403, "Hanya owner/admin yang dapat melakukan aksi ini")
+    return m
+
 
 def log_audit(db, org_id, user_id, action, entity_type=None, entity_id=None, payload=None, ip=None):
     try:
@@ -399,12 +411,24 @@ def create_tx(p: schemas.TransactionIn, user=Depends(get_current_user),
 @app.get("/api/v1/transactions")
 def list_tx(date_from: date = Query(alias="from"), date_to: date = Query(alias="to"),
             limit: int = Query(50, le=200), offset: int = 0,
+            tx_type: Optional[str] = None, category_id: Optional[int] = None,
+            search: Optional[str] = None,
             org_id=Depends(get_current_org), db=Depends(get_db)):
     q = db.query(models.Transaction).filter(
         models.Transaction.organization_id == org_id,
         models.Transaction.transaction_date >= date_from,
         models.Transaction.transaction_date <= date_to,
-    ).order_by(models.Transaction.transaction_date.desc(), models.Transaction.id.desc())
+        # Baris reversal adalah jejak audit, bukan transaksi baru. Tampilkan
+        # transaksi asli (status reversed) agar tidak terlihat dobel di UI.
+        models.Transaction.reversal_of_id.is_(None),
+    )
+    if tx_type:
+        q = q.filter(models.Transaction.tx_type == tx_type)
+    if category_id:
+        q = q.filter(models.Transaction.category_id == category_id)
+    if search:
+        q = q.filter(models.Transaction.description.ilike(f"%{search}%"))
+    q = q.order_by(models.Transaction.transaction_date.desc(), models.Transaction.id.desc())
     total = q.count()
     rows = q.limit(limit).offset(offset).all()
     return {"total": total, "limit": limit, "offset": offset,
@@ -622,6 +646,126 @@ def list_signals(limit: int = 50, org_id=Depends(get_current_org), db=Depends(ge
         "trigger_metric": sig.trigger_metric, "current_value": sig.current_value,
         "explanation": sig.explanation, "created_at": str(sig.created_at)
     } for sig in rows]
+
+# ==========================================
+# 8b. RASIO CFO & NERACA (ACCRUAL-LITE)
+# ==========================================
+@app.get("/api/v1/balance-sheet")
+def get_balance_sheet(as_of: Optional[date] = Query(None),
+                      org_id=Depends(get_current_org), db=Depends(get_db)):
+    """Neraca terakhir pada/sebelum tanggal as_of.
+
+    Jika snapshot belum ada, endpoint tetap 200 dengan status `unavailable`
+    dan alasan eksplisit. Tidak ada angka nol yang dibuat-buat.
+    """
+    tanggal = as_of or date.today()
+    return ratio_service.balance_sheet(db, org_id, tanggal)
+
+@app.get("/api/v1/ratios")
+def get_ratios(date_from: date = Query(alias="from"), date_to: date = Query(alias="to"),
+               as_of: Optional[date] = Query(None),
+               org_id=Depends(get_current_org), db=Depends(get_db)):
+    if date_from > date_to:
+        raise HTTPException(422, "Tanggal awal tidak boleh setelah tanggal akhir")
+    if as_of is not None and as_of < date_from:
+        raise HTTPException(422, "Tanggal snapshot tidak boleh sebelum periode")
+    profile = db.query(models.BusinessProfile).filter_by(organization_id=org_id).first()
+    industry = profile.industry if profile else None
+    result = ratio_service.compute_ratio_snapshot(
+        db, org_id, date_from, date_to, as_of=as_of, industry=industry, persist=True
+    )
+    db.commit()
+    return result
+
+@app.get("/api/v1/ratios/thresholds")
+def get_ratio_thresholds(org_id=Depends(get_current_org), db=Depends(get_db)):
+    profile = db.query(models.BusinessProfile).filter_by(organization_id=org_id).first()
+    industry = profile.industry if profile else None
+    return {
+        "industry": industry,
+        "thresholds": ratio_service.threshold_list(db, org_id, industry),
+        "note": "Threshold dapat di-override per organisasi. Nilai persen disimpan sebagai desimal (0.30 = 30%).",
+    }
+
+@app.patch("/api/v1/ratios/thresholds/{ratio_code}")
+def update_ratio_threshold(ratio_code: str, p: schemas.RatioThresholdUpdate,
+                           user=Depends(get_current_user),
+                           org_id=Depends(get_current_org), db=Depends(get_db)):
+    if ratio_code not in RATIO_META:
+        raise HTTPException(404, "Kode rasio tidak dikenal")
+    require_org_role(db, org_id, user)
+
+    if p.direction == "higher":
+        if not (p.critical <= p.warning <= p.target):
+            raise HTTPException(422, "Untuk arah higher, urutan harus critical <= warning <= target")
+    else:
+        if not (p.target <= p.warning <= p.critical):
+            raise HTTPException(422, "Untuk arah lower, urutan harus target <= warning <= critical")
+
+    profile = db.query(models.BusinessProfile).filter_by(organization_id=org_id).first()
+    industry = profile.industry if profile else None
+    row = (db.query(models.RatioThreshold)
+           .filter_by(organization_id=org_id, ratio_code=ratio_code, industry=industry)
+           .first())
+    if row is None:
+        row = models.RatioThreshold(
+            organization_id=org_id, ratio_code=ratio_code, industry=industry
+        )
+        db.add(row)
+    row.target = p.target
+    row.warning = p.warning
+    row.critical = p.critical
+    row.direction = p.direction
+    row.is_active = True
+    log_audit(db, org_id, user.id, "RATIO_THRESHOLD_UPDATED", "ratio_thresholds", row.id,
+              {"ratio_code": ratio_code})
+    db.commit(); db.refresh(row)
+    return {
+        "ratio_code": row.ratio_code,
+        "target": str(row.target),
+        "warning": str(row.warning),
+        "critical": str(row.critical),
+        "direction": row.direction,
+        "industry": row.industry,
+    }
+
+@app.post("/api/v1/ratios/{ratio_code}/explain")
+def explain_ratio(ratio_code: str,
+                  date_from: date = Query(alias="from"),
+                  date_to: date = Query(alias="to"),
+                  as_of: Optional[date] = Query(None),
+                  org_id=Depends(get_current_org), db=Depends(get_db)):
+    if ratio_code not in RATIO_META:
+        raise HTTPException(404, "Kode rasio tidak dikenal")
+    if date_from > date_to:
+        raise HTTPException(422, "Tanggal awal tidak boleh setelah tanggal akhir")
+    if as_of is not None and as_of < date_from:
+        raise HTTPException(422, "Tanggal snapshot tidak boleh sebelum periode")
+
+    profile = db.query(models.BusinessProfile).filter_by(organization_id=org_id).first()
+    result = ratio_service.compute_ratio_snapshot(
+        db, org_id, date_from, date_to, as_of=as_of,
+        industry=profile.industry if profile else None, persist=False,
+    )
+    ratio = next(r for r in result["ratios"] if r["code"] == ratio_code)
+    direction = ratio["threshold"]["direction"] if ratio.get("threshold") else "higher"
+    narrative = ratio_narrative.explain_ratio(
+        ratio_code, ratio["band"], ratio["quality"], direction,
+        ratio.get("reason", ""),
+    )
+    return {
+        "ratio_code": ratio_code,
+        "ratio_name": ratio["name"],
+        "period": result["period"],
+        "as_of": result["as_of"],
+        "band": ratio["band"],
+        "quality": ratio["quality"],
+        "status": ratio["status"],
+        "value": ratio["value"],
+        "display": ratio["display"],
+        **narrative,
+    }
+
 
 # ==========================================
 # 9. FORECASTS (P2 / CASH FLOW FORECAST)

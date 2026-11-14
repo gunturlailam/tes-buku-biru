@@ -14,7 +14,6 @@ import {
   TableRow,
 } from "@/components/ui/Table";
 
-export const instant = false;
 import { Plus, Search, Receipt, Pencil, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";

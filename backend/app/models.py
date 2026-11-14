@@ -48,6 +48,12 @@ class Account(Base):
     name = Column(Text, nullable=False)
     account_type = Column(Text, nullable=False)  # asset, liability, equity, revenue, expense
     normal_balance = Column(Text, nullable=False, default="debit")  # debit, credit
+    # Role neraca untuk mesin rasio: cash, receivable, inventory, prepaid,
+    # other_current_asset, payable, short_term_loan, tax_payable,
+    # long_term_loan, equity, revenue, cogs, operating_expense,
+    # interest_expense, tax_expense, other.
+    account_role = Column(Text, nullable=True)
+    is_current = Column(Boolean, nullable=False, default=False)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     __table_args__ = (UniqueConstraint("organization_id", "code"),)
@@ -60,6 +66,8 @@ class Category(Base):
     name = Column(Text, nullable=False)
     tx_type = Column(Text, nullable=False)
     account_id = Column(Integer, ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    # True untuk kategori HPP/COGS. Dipakai mesin rasio untuk GPM/OPM.
+    is_cogs = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     __table_args__ = (UniqueConstraint("organization_id", "name", "tx_type"),)
 
@@ -225,7 +233,181 @@ class ForecastBacktest(Base):
     folds_summary = Column(JSON, nullable=True)       # list of fold results
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-# 18. audit_events: important actor/action/time metadata
+# ==========================================
+# RATIO CFO / ACCRUAL-LITE TABLES
+# ==========================================
+
+# 18. accounting_periods: periode akuntansi dengan status tutup buku
+class AccountingPeriod(Base):
+    __tablename__ = "accounting_periods"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    period_from = Column(Date, nullable=False)
+    period_to = Column(Date, nullable=False)
+    status = Column(Text, nullable=False, default="open")  # open, closed, preview
+    closed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    __table_args__ = (
+        UniqueConstraint("organization_id", "period_from", "period_to"),
+        Index("idx_period_org_range", "organization_id", "period_from", "period_to"),
+    )
+
+# 19. balance_snapshots: header neraca per as-of date
+class BalanceSnapshot(Base):
+    __tablename__ = "balance_snapshots"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    period_id = Column(Integer, ForeignKey("accounting_periods.id", ondelete="SET NULL"), nullable=True)
+    as_of_date = Column(Date, nullable=False)
+    status = Column(Text, nullable=False, default="draft")  # draft, final
+    notes = Column(Text, nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    __table_args__ = (
+        UniqueConstraint("organization_id", "as_of_date"),
+        Index("idx_balance_snapshot_org_date", "organization_id", "as_of_date"),
+    )
+
+# 20. balance_snapshot_lines: saldo akun pada snapshot
+class BalanceSnapshotLine(Base):
+    __tablename__ = "balance_snapshot_lines"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    snapshot_id = Column(Integer, ForeignKey("balance_snapshots.id", ondelete="CASCADE"), nullable=False)
+    account_id = Column(Integer, ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)
+    amount = Column(Numeric(18, 2), nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    __table_args__ = (UniqueConstraint("snapshot_id", "account_id"),)
+
+# 21. receivables: piutang usaha
+class Receivable(Base):
+    __tablename__ = "receivables"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    customer_name = Column(Text, nullable=False)
+    invoice_number = Column(Text, nullable=True)
+    invoice_date = Column(Date, nullable=False)
+    due_date = Column(Date, nullable=False)
+    amount = Column(Numeric(18, 2), nullable=False)
+    paid_amount = Column(Numeric(18, 2), nullable=False, default=0)
+    status = Column(Text, nullable=False, default="open")  # open, partial, paid, overdue, written_off
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    __table_args__ = (Index("idx_receivable_org_due", "organization_id", "due_date", "status"),)
+
+# 22. payables: utang usaha
+class Payable(Base):
+    __tablename__ = "payables"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    supplier_name = Column(Text, nullable=False)
+    bill_number = Column(Text, nullable=True)
+    bill_date = Column(Date, nullable=False)
+    due_date = Column(Date, nullable=False)
+    amount = Column(Numeric(18, 2), nullable=False)
+    paid_amount = Column(Numeric(18, 2), nullable=False, default=0)
+    status = Column(Text, nullable=False, default="open")  # open, partial, paid, overdue
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    __table_args__ = (Index("idx_payable_org_due", "organization_id", "due_date", "status"),)
+
+# 23. inventory_items: master persediaan
+class InventoryItem(Base):
+    __tablename__ = "inventory_items"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    sku = Column(Text, nullable=False)
+    name = Column(Text, nullable=False)
+    unit = Column(Text, nullable=False, default="pcs")
+    cost_price = Column(Numeric(18, 2), nullable=False, default=0)
+    quantity_on_hand = Column(Numeric(18, 4), nullable=False, default=0)
+    reorder_point = Column(Numeric(18, 4), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    __table_args__ = (
+        UniqueConstraint("organization_id", "sku"),
+        Index("idx_inventory_item_org_sku", "organization_id", "sku"),
+    )
+
+# 24. inventory_movements: mutasi persediaan
+class InventoryMovement(Base):
+    __tablename__ = "inventory_movements"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    item_id = Column(Integer, ForeignKey("inventory_items.id", ondelete="CASCADE"), nullable=False)
+    movement_date = Column(Date, nullable=False)
+    movement_type = Column(Text, nullable=False)  # in, out, adjustment
+    quantity = Column(Numeric(18, 4), nullable=False)
+    unit_cost = Column(Numeric(18, 2), nullable=False, default=0)
+    reference = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    __table_args__ = (Index("idx_inventory_move_org_date", "organization_id", "movement_date"),)
+
+# 25. fixed_assets: aset tetap dan penyusutan
+class FixedAsset(Base):
+    __tablename__ = "fixed_assets"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    name = Column(Text, nullable=False)
+    asset_category = Column(Text, nullable=True)
+    acquisition_date = Column(Date, nullable=False)
+    acquisition_cost = Column(Numeric(18, 2), nullable=False)
+    accumulated_depreciation = Column(Numeric(18, 2), nullable=False, default=0)
+    useful_life_months = Column(Integer, nullable=True)
+    salvage_value = Column(Numeric(18, 2), nullable=False, default=0)
+    status = Column(Text, nullable=False, default="active")  # active, disposed
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    __table_args__ = (Index("idx_fixed_asset_org_status", "organization_id", "status"),)
+
+# 26. loans: pinjaman dan saldo pokok
+class Loan(Base):
+    __tablename__ = "loans"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    lender = Column(Text, nullable=False)
+    loan_type = Column(Text, nullable=False, default="term_loan")  # short_term, term_loan
+    principal = Column(Numeric(18, 2), nullable=False)
+    interest_rate = Column(Numeric(8, 4), nullable=False, default=0)
+    term_months = Column(Integer, nullable=False)
+    start_date = Column(Date, nullable=False)
+    outstanding_principal = Column(Numeric(18, 2), nullable=False)
+    monthly_installment = Column(Numeric(18, 2), nullable=True)
+    status = Column(Text, nullable=False, default="active")  # active, paid, defaulted
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    __table_args__ = (Index("idx_loan_org_status", "organization_id", "status"),)
+
+# 27. ratio_thresholds: ambang rasio global atau per organisasi/industri
+class RatioThreshold(Base):
+    __tablename__ = "ratio_thresholds"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True)
+    ratio_code = Column(Text, nullable=False)
+    industry = Column(Text, nullable=True)
+    target = Column(Numeric(18, 4), nullable=True)
+    warning = Column(Numeric(18, 4), nullable=True)
+    critical = Column(Numeric(18, 4), nullable=True)
+    direction = Column(Text, nullable=False, default="higher")  # higher, lower
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    __table_args__ = (Index("idx_ratio_threshold_org_code", "organization_id", "ratio_code"),)
+
+# 28. ratio_snapshots: hasil perhitungan rasio per periode
+class RatioSnapshot(Base):
+    __tablename__ = "ratio_snapshots"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    period_from = Column(Date, nullable=False)
+    period_to = Column(Date, nullable=False)
+    as_of_date = Column(Date, nullable=False)
+    formula_version = Column(Text, nullable=False)
+    data_quality_status = Column(Text, nullable=False)  # usable, partial, insufficient
+    ratios = Column(JSON, nullable=True)
+    warnings = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    __table_args__ = (
+        UniqueConstraint("organization_id", "period_from", "period_to", "formula_version"),
+        Index("idx_ratio_snapshot_org_period", "organization_id", "period_from", "period_to"),
+    )
+
+# 29. audit_events: important actor/action/time metadata
 class AuditEvent(Base):
     __tablename__ = "audit_events"
     id = Column(Integer, primary_key=True, autoincrement=True)

@@ -18,10 +18,12 @@ def _aggregate_transactions(transactions):
     totals = defaultdict(lambda: ZERO)
     uncategorized = count = 0
     for tx in transactions:
-        if tx.status != "posted":
+        # Baris reversal tidak dihitung sebagai transaksi baru. Transaksi asli
+        # yang sudah di-reverse berstatus "reversed" dan juga dilewati, sehingga
+        # efek bersihnya nol (bukan negatif dua kali).
+        if tx.status != "posted" or tx.reversal_of_id is not None:
             continue
-        sign = Decimal(-1) if tx.reversal_of_id else Decimal(1)
-        totals[tx.tx_type] += sign * tx.amount
+        totals[tx.tx_type] += tx.amount
         count += 1
         if tx.category_id is None and tx.tx_type in ("income", "expense"):
             uncategorized += 1
@@ -447,14 +449,16 @@ def calculate_cash_flow_forecast(transactions, horizon=3, period_unit="month"):
     now_iso = datetime.now(timezone.utc).isoformat()
     monthly_flows = defaultdict(lambda: ZERO)
     for tx in transactions:
-        if tx.status != "posted":
+        # Baris reversal dan transaksi asli yang sudah di-reverse tidak boleh
+        # dihitung dua kali. Transaksi asli berstatus "reversed" (dilewati),
+        # baris reversal juga dilewati sehingga efek bersihnya nol.
+        if tx.status != "posted" or tx.reversal_of_id is not None:
             continue
-        sign = Decimal(-1) if tx.reversal_of_id else Decimal(1)
         month_key = tx.transaction_date.strftime("%Y-%m")
         if tx.tx_type in ("income", "loan_received", "owner_contribution"):
-            monthly_flows[month_key] += sign * tx.amount
+            monthly_flows[month_key] += tx.amount
         elif tx.tx_type in ("expense", "refund", "loan_repayment", "owner_draw"):
-            monthly_flows[month_key] -= sign * tx.amount
+            monthly_flows[month_key] -= tx.amount
 
     sorted_months = sorted(monthly_flows.keys())
 
@@ -539,14 +543,16 @@ def run_walk_forward_backtest(transactions, horizon=3, period_unit="month", min_
     # Agregasi per bulan
     monthly_flows = defaultdict(lambda: ZERO)
     for tx in transactions:
-        if tx.status != "posted":
+        # Baris reversal dan transaksi asli yang sudah di-reverse tidak boleh
+        # dihitung dua kali. Transaksi asli berstatus "reversed" (dilewati),
+        # baris reversal juga dilewati sehingga efek bersihnya nol.
+        if tx.status != "posted" or tx.reversal_of_id is not None:
             continue
-        sign = Decimal(-1) if tx.reversal_of_id else Decimal(1)
         month_key = tx.transaction_date.strftime("%Y-%m")
         if tx.tx_type in ("income", "loan_received", "owner_contribution"):
-            monthly_flows[month_key] += sign * tx.amount
+            monthly_flows[month_key] += tx.amount
         elif tx.tx_type in ("expense", "refund", "loan_repayment", "owner_draw"):
-            monthly_flows[month_key] -= sign * tx.amount
+            monthly_flows[month_key] -= tx.amount
 
     sorted_months = sorted(monthly_flows.keys())
     n = len(sorted_months)

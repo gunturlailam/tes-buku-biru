@@ -110,6 +110,12 @@ class RecommendationUpdate(BaseModel):
     status: Literal["active", "reviewed", "dismissed"]
     user_feedback: Optional[str] = None
 
+class RatioThresholdUpdate(BaseModel):
+    target: Decimal = Field(ge=0)
+    warning: Decimal = Field(ge=0)
+    critical: Decimal = Field(ge=0)
+    direction: Literal["higher", "lower"]
+
 class RiskRuleUpdate(BaseModel):
     threshold_config: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = None

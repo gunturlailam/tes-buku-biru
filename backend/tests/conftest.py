@@ -7,6 +7,10 @@ from app.main import app, DEFAULT_CATEGORIES
 from app import models
 from app.security import hash_password
 
+# Tabel test dibuat oleh fixture setup_test_db. Jangan biarkan startup app
+# menyentuh database aplikasi (PostgreSQL) saat test berjalan.
+app.router.on_startup.clear()
+
 TEST_DATABASE_URL = "sqlite:///./test_profitai.db"
 
 engine_test = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})

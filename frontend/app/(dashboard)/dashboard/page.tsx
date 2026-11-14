@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-export const instant = false;
 
 interface RecentTransaction {
   id: number;
