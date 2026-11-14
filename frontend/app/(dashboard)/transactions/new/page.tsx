@@ -9,6 +9,28 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useCreateTransaction } from "@/hooks/use-transactions";
+import { getErrorMessage } from "@/lib/api";
+
+interface Toast {
+  type: "success" | "error";
+  message: string;
+}
+
+// Helper function to map category name to ID (hardcoded for now, ideally from backend)
+const getCategoryIdByName = (categoryName: string): number => {
+  const categoryMap: Record<string, number> = {
+    "Penjualan": 1,
+    "Pembelian": 2,
+    "Operasional": 3,
+    "Gaji": 4,
+    "Marketing": 5,
+    "Transportasi": 6,
+    "Utilitas": 7,
+    "Lainnya": 8,
+  };
+  return categoryMap[categoryName] || 1;
+};
 
 const typeOptions = [
   { value: "income", label: "Pemasukan" },
@@ -37,8 +59,9 @@ const accountOptions = [
 
 export default function NewTransactionPage() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
+  const { mutate: createTransaction, isPending: isCreating } = useCreateTransaction();
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [toast, setToast] = useState<Toast | null>(null);
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split("T")[0],
@@ -97,16 +120,33 @@ export default function NewTransactionPage() {
       return;
     }
 
-    setIsLoading(true);
+    // Prepare payload for API (transform field names)
+    const payload = {
+      tx_type: formData.type,
+      amount: formData.amount,
+      tx_date: formData.date,
+      category_id: getCategoryIdByName(formData.category),
+      description: formData.description || "",
+      counterparty: formData.notes || "",
+    };
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // TODO: Replace with actual API call
-    console.log("Form data:", formData);
-
-    setIsLoading(false);
-    router.push("/transactions");
+    createTransaction(payload, {
+      onSuccess: () => {
+        setToast({
+          type: "success",
+          message: "Transaksi berhasil disimpan",
+        });
+        setTimeout(() => router.push("/transactions"), 1000);
+      },
+      onError: (error) => {
+        const errorMessage = getErrorMessage(error);
+        setToast({
+          type: "error",
+          message: errorMessage || "Gagal menyimpan transaksi",
+        });
+        setErrors({ submit: errorMessage });
+      },
+    });
   };
 
   return (
@@ -136,7 +176,25 @@ export default function NewTransactionPage() {
           <CardTitle>Informasi Transaksi</CardTitle>
         </CardHeader>
         <CardContent>
+          {toast && (
+            <div
+              className={`mb-4 p-4 rounded-lg text-sm font-medium ${
+                toast.type === "success"
+                  ? "bg-green-50 text-green-800 border border-green-200"
+                  : "bg-red-50 text-red-800 border border-red-200"
+              }`}
+            >
+              {toast.message}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-5">
+            {errors.submit && (
+              <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800">
+                {errors.submit}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* Date */}
               <Input
@@ -221,11 +279,11 @@ export default function NewTransactionPage() {
 
             {/* Actions */}
             <div className="flex items-center gap-3 pt-4 border-t border-[#EBE5DC]">
-              <Button type="submit" isLoading={isLoading} disabled={isLoading}>
-                {isLoading ? "Menyimpan..." : "Simpan Transaksi"}
+              <Button type="submit" isLoading={isCreating} disabled={isCreating}>
+                {isCreating ? "Menyimpan..." : "Simpan Transaksi"}
               </Button>
               <Link href="/transactions">
-                <Button type="button" variant="secondary" disabled={isLoading}>
+                <Button type="button" variant="secondary" disabled={isCreating}>
                   Batal
                 </Button>
               </Link>

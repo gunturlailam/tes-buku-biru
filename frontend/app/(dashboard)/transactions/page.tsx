@@ -16,7 +16,13 @@ import {
 import { Plus, Search, Receipt, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { useTransactions } from "@/hooks/use-transactions";
+import { useTransactions, useDeleteTransaction } from "@/hooks/use-transactions";
+import { getErrorMessage } from "@/lib/api";
+
+interface Toast {
+  type: "success" | "error";
+  message: string;
+}
 
 const typeOptions = [
   { value: "all", label: "Semua Tipe" },
@@ -36,8 +42,11 @@ function TransactionsContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  
+  const [toast, setToast] = useState<Toast | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
   const { data: transactions = [], isLoading, error } = useTransactions();
+  const { mutate: deleteTransaction, isPending: isDeleting } = useDeleteTransaction();
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter((transaction: any) => {
@@ -53,8 +62,45 @@ function TransactionsContent() {
     });
   }, [transactions, searchQuery, typeFilter, categoryFilter]);
 
+  const handleDelete = (id: number) => {
+    if (window.confirm("Apakah Anda yakin ingin menghapus transaksi ini?")) {
+      setDeletingId(id);
+      deleteTransaction(id, {
+        onSuccess: () => {
+          setDeletingId(null);
+          setToast({
+            type: "success",
+            message: "Transaksi berhasil dihapus",
+          });
+          setTimeout(() => setToast(null), 3000);
+        },
+        onError: (error) => {
+          setDeletingId(null);
+          const errorMessage = getErrorMessage(error);
+          setToast({
+            type: "error",
+            message: errorMessage || "Gagal menghapus transaksi",
+          });
+        },
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Toast notification */}
+      {toast && (
+        <div
+          className={`fixed top-4 right-4 p-4 rounded-lg text-sm font-medium z-50 ${
+            toast.type === "success"
+              ? "bg-green-50 text-green-800 border border-green-200"
+              : "bg-red-50 text-red-800 border border-red-200"
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -175,7 +221,12 @@ function TransactionsContent() {
                             <Pencil className="w-3.5 h-3.5" />
                           </Button>
                         </Link>
-                        <Button variant="ghost" size="sm">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(transaction.id)}
+                          disabled={isDeleting && deletingId === transaction.id}
+                        >
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       </div>

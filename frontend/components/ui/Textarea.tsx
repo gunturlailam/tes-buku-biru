@@ -6,10 +6,11 @@ export interface TextareaProps
   label?: string;
   error?: string;
   helperText?: string;
+  rows?: number;
 }
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, label, error, helperText, ...props }, ref) => {
+  ({ className, label, error, helperText, rows = 3, ...props }, ref) => {
     const id = props.id || props.name;
 
     return (
@@ -24,12 +25,13 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           </label>
         )}
         <textarea
+          rows={rows}
           className={cn(
-            "flex min-h-[80px] w-full rounded-xl border border-[#EBE5DC] bg-white px-3 py-2 text-sm",
+            "flex w-full rounded-xl border border-[#EBE5DC] bg-white px-3 py-2 text-sm",
             "text-[#1F241D] placeholder:text-[#7E8379]/60",
             "focus:outline-none focus:ring-2 focus:ring-[#314028] focus:border-transparent",
             "disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-[#FAF7F2]",
-            "transition-all shadow-xs resize-y",
+            "transition-all shadow-xs resize-none",
             error && "border-red-500 focus:ring-red-500",
             className
           )}
