@@ -33,6 +33,14 @@ export default function LoginPage() {
     } else {
       // No token, show login form
       setChecking(false);
+      
+      // Clear form data on fresh login page load
+      setFormData({
+        email: "",
+        password: "",
+        remember: false,
+      });
+      setError("");
     }
   }, [router]);
 
