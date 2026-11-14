@@ -41,18 +41,22 @@ export const transactionAPI = {
     from_date?: string;
     to_date?: string;
   }) => {
+    // Parse dates to ensure they're in correct YYYY-MM-DD format
+    const from_date = params?.from_date ? String(params.from_date).split("T")[0] : undefined;
+    const to_date = params?.to_date ? String(params.to_date).split("T")[0] : undefined;
+
     // Ensure date parameters are provided with correct names (from/to for backend query params)
     const queryParams = {
       limit: params?.limit || 50,
       offset: params?.skip || 0,
-      from: params?.from_date,
-      to: params?.to_date,
+      from: from_date,  // Must be YYYY-MM-DD format
+      to: to_date,      // Must be YYYY-MM-DD format
       ...(params?.tx_type && { tx_type: params.tx_type }),
       ...(params?.category_id && { category_id: params.category_id }),
     };
     
     const { data } = await apiClient.get("/transactions", { params: queryParams });
-    return data;
+    return data.items || [];
   },
 
   getTransaction: async (id: number) => {

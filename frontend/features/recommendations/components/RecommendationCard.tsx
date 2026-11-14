@@ -37,8 +37,13 @@ export function RecommendationCard({ recommendation, onMarkDone }: Recommendatio
             <h3 className="text-lg font-semibold text-gray-900 leading-snug">
               {title}
             </h3>
-            <p className="text-xs text-gray-600 mt-1">
-              Periode: {recommendation.period.from} - {recommendation.period.to}
+            {recommendation.period && (
+              <p className="text-xs text-gray-600 mt-1">
+                Periode: {recommendation.period.from} - {recommendation.period.to}
+              </p>
+            )}
+            <p className="text-xs text-gray-500 mt-0.5">
+              Dibuat: {new Date(recommendation.created_at).toLocaleDateString("id-ID")}
             </p>
           </div>
         </div>

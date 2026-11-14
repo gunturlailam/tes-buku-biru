@@ -10,7 +10,13 @@ export const reportsApi = {
   getFinancialSummary: async (
     params: FinancialQueryParams,
   ): Promise<FinancialSummaryResponse> => {
-    const { data } = await apiClient.get("/financial/summary", { params });
+    // Ensure dates are in correct YYYY-MM-DD format
+    const from_date = String(params.from).split("T")[0];
+    const to_date = String(params.to).split("T")[0];
+
+    const { data } = await apiClient.get("/financial/summary", { 
+      params: { from: from_date, to: to_date }
+    });
     return data;
   },
 
@@ -20,7 +26,13 @@ export const reportsApi = {
   getProfitLossReport: async (
     params: FinancialQueryParams,
   ): Promise<ProfitLossReportResponse> => {
-    const { data } = await apiClient.get("/financial/profit-loss", { params });
+    // Ensure dates are in correct YYYY-MM-DD format
+    const from_date = String(params.from).split("T")[0];
+    const to_date = String(params.to).split("T")[0];
+
+    const { data } = await apiClient.get("/financial/profit-loss", { 
+      params: { from: from_date, to: to_date }
+    });
     return data;
   },
 
@@ -30,7 +42,13 @@ export const reportsApi = {
   getCashFlowReport: async (
     params: FinancialQueryParams,
   ): Promise<CashFlowReportResponse> => {
-    const { data } = await apiClient.get("/financial/cash-flow", { params });
+    // Ensure dates are in correct YYYY-MM-DD format
+    const from_date = String(params.from).split("T")[0];
+    const to_date = String(params.to).split("T")[0];
+
+    const { data } = await apiClient.get("/financial/cash-flow", { 
+      params: { from: from_date, to: to_date }
+    });
     return data;
   },
 };

@@ -105,13 +105,21 @@ function TransactionsContent() {
         </div>
       )}
 
-      {/* Error State */}
+      {/* Error State - with detailed error info */}
       {error && (
-        <div className="bg-red-50 rounded-2xl border border-red-200 shadow-[0_2px_16px_rgba(239,68,68,0.1)] p-6">
-          <p className="text-red-700 font-medium">Gagal memuat transaksi</p>
-          <p className="text-red-600 text-sm mt-1">
-            {error instanceof Error ? error.message : "Terjadi kesalahan"}
-          </p>
+        <div className="bg-red-50 rounded-2xl border border-red-200 shadow-[0_2px_16px_rgba(239,68,68,0.1)] p-6 space-y-3">
+          <div>
+            <p className="text-red-700 font-medium">Gagal memuat transaksi</p>
+            <p className="text-red-600 text-sm mt-1">
+              {error instanceof Error ? error.message : "Terjadi kesalahan tidak diketahui"}
+            </p>
+          </div>
+          {error instanceof Error && error.message.includes("422") && (
+            <div className="bg-red-100 p-3 rounded border border-red-300 text-xs text-red-800">
+              <p className="font-medium mb-1">Penyebab: Invalid request format</p>
+              <p>Mohon refresh halaman atau coba beberapa saat lagi</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -133,7 +141,7 @@ function TransactionsContent() {
                 {filteredTransactions.map((transaction: any) => (
                   <TableRow key={transaction.id}>
                     <TableCell className="font-medium">
-                      {formatDate(transaction.date)}
+                      {formatDate(transaction.transaction_date || transaction.date)}
                     </TableCell>
                     <TableCell>{transaction.description}</TableCell>
                     <TableCell>

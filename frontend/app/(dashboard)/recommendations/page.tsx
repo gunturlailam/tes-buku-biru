@@ -34,9 +34,14 @@ export default function RecommendationsPage() {
   // Update local state when API data changes
   useMemo(() => {
     if (recommendationsData?.recommendations) {
-      setLocalRecommendations(recommendationsData.recommendations);
+      // Ensure each recommendation has period data
+      const enrichedRecs = recommendationsData.recommendations.map((rec: any) => ({
+        ...rec,
+        period: rec.period || { from: dateRange.from, to: dateRange.to },
+      }));
+      setLocalRecommendations(enrichedRecs);
     }
-  }, [recommendationsData]);
+  }, [recommendationsData, dateRange]);
 
   // Loading state
   if (isLoading) {
