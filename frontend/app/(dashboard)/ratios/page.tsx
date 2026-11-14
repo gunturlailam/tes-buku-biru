@@ -13,6 +13,8 @@ import {
   type RatioPeriodType,
 } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
+
+export const instant = false;
 import { BalanceSheetPanel } from "@/features/ratios/components/BalanceSheetPanel";
 import { RatioCard } from "@/features/ratios/components/RatioCard";
 import { RatioSummary } from "@/features/ratios/components/RatioSummary";

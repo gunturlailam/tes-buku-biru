@@ -13,6 +13,8 @@ import {
   type OrganizationResponse,
 } from "@/lib/api";
 
+export const instant = false;
+
 interface Toast {
   type: "success" | "error";
   message: string;
