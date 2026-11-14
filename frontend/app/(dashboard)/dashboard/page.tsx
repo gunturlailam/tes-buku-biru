@@ -308,7 +308,7 @@ export default function DashboardPage() {
                     />
                     <span className="text-xs font-semibold text-gray-700">{item.label}</span>
                   </div>
-                  <RiskLevelBadge level={item.status as any} />
+                  <RiskLevelBadge level={item.status as "normal" | "attention" | "critical" | "insufficient"} />
                 </div>
               ))}
             </div>
