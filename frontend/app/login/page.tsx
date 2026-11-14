@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
 import Link from "next/link";
 import { Eye, EyeOff, ArrowRight } from "lucide-react";
 import { authApi } from "@/features/auth/api/auth-api";
-import { saveAccessToken } from "@/lib/auth";
+import { saveAccessToken, clearAccessToken, getAccessToken } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/api-client";
 import Image from "next/image";
 
@@ -21,6 +21,15 @@ export default function LoginPage() {
     password: "",
     remember: false,
   });
+
+  // Clear any stale token when landing on login page
+  useEffect(() => {
+    // If user already has valid token and is redirected to login, clear it
+    // This ensures fresh login without stale token interference
+    if (getAccessToken()) {
+      clearAccessToken();
+    }
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -82,7 +91,6 @@ export default function LoginPage() {
             alt="Justice statue decoration"
             fill
             className="object-contain object-center"
-            priority
             unoptimized
           />
         </div>

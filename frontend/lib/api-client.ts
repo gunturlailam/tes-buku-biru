@@ -74,8 +74,10 @@ export interface ApiErrorResponse {
 
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    const apiError = error.response?.data as ApiErrorResponse | undefined;
-    return apiError?.error?.message || error.message;
+    const apiError = error.response?.data as
+      | (ApiErrorResponse & { detail?: string })
+      | undefined;
+    return apiError?.error?.message || apiError?.detail || error.message;
   }
 
   if (error instanceof Error) {
