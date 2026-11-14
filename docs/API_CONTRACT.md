@@ -19,33 +19,53 @@ This document defines conventions and proposed resource boundaries. Exact paths 
 This table mixes implemented and proposed endpoints. Ratio endpoints marked in
 §4.1 are implemented; other endpoints remain proposals.
 
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `/health` | Service health |
-| POST | `/api/v1/auth/register` | Register a user and organization |
-| POST | `/api/v1/auth/login` | Exchange email/password for a bearer token |
-| GET | `/api/v1/me` | Current user |
-| GET/POST | `/api/v1/organizations` | List/create organization |
-| GET/PATCH | `/api/v1/organizations/{id}` | Organization profile |
-| GET/POST | `/api/v1/transactions` | List/create |
-| GET/PATCH | `/api/v1/transactions/{id}` | Read/update |
-| POST | `/api/v1/transactions/{id}/reverse` | Reverse/void with audit |
-| POST | `/api/v1/imports/transactions/preview` | Parse and validate upload |
-| POST | `/api/v1/imports/{id}/confirm` | Confirm import |
-| GET | `/api/v1/financial/summary` | KPI summary |
-| GET | `/api/v1/financial/profit-loss` | Profit/loss summary |
-| GET | `/api/v1/financial/cash-flow` | Cash movement summary |
-| GET | `/api/v1/financial/health` | Health signals |
-| GET | `/api/v1/balance-sheet` | Balance sheet as of a date |
-| GET | `/api/v1/ratios` | Compute all CFO ratios for a period |
-| GET | `/api/v1/ratios/thresholds` | Effective ratio thresholds |
-| PATCH | `/api/v1/ratios/thresholds/{ratio_code}` | Override thresholds (owner/admin) |
-| POST | `/api/v1/ratios/{ratio_code}/explain` | Optional LLM narrative with fallback |
-| POST | `/api/v1/forecasts/cash-flow` | Create/evaluate forecast |
-| GET | `/api/v1/forecasts/{id}` | Forecast result |
-| GET | `/api/v1/recommendations` | Recommendation list |
+| Method    | Path                                     | Purpose                                    |
+| --------- | ---------------------------------------- | ------------------------------------------ |
+| GET       | `/health`                                | Service health                             |
+| POST      | `/api/v1/auth/register`                  | Register a user and organization           |
+| POST      | `/api/v1/auth/login`                     | Exchange email/password for a bearer token |
+| GET       | `/api/v1/me`                             | Current user                               |
+| GET/POST  | `/api/v1/organizations`                  | List/create organization                   |
+| GET/PATCH | `/api/v1/organizations/{id}`             | Organization profile                       |
+| GET/POST  | `/api/v1/transactions`                   | List/create                                |
+| GET/PATCH | `/api/v1/transactions/{id}`              | Read/update                                |
+| POST      | `/api/v1/transactions/{id}/reverse`      | Reverse/void with audit                    |
+| POST      | `/api/v1/imports/transactions/preview`   | Parse and validate upload                  |
+| POST      | `/api/v1/imports/{id}/confirm`           | Confirm import                             |
+| GET       | `/api/v1/financial/summary`              | KPI summary                                |
+| GET       | `/api/v1/financial/profit-loss`          | Profit/loss summary                        |
+| GET       | `/api/v1/financial/cash-flow`            | Cash movement summary                      |
+| GET       | `/api/v1/financial/health`               | Health signals                             |
+| GET       | `/api/v1/balance-sheet`                  | Balance sheet as of a date                 |
+| GET       | `/api/v1/ratios`                         | Compute all CFO ratios for a period        |
+| GET       | `/api/v1/ratios/thresholds`              | Effective ratio thresholds                 |
+| PATCH     | `/api/v1/ratios/thresholds/{ratio_code}` | Override thresholds (owner/admin)          |
+| POST      | `/api/v1/ratios/{ratio_code}/explain`    | Optional LLM narrative with fallback       |
+| POST      | `/api/v1/forecasts/cash-flow`            | Create/evaluate forecast                   |
+| GET       | `/api/v1/forecasts/{id}`                 | Forecast result                            |
+| GET       | `/api/v1/recommendations`                | Recommendation list                        |
 
 Do not implement all endpoints at once. P0 endpoints are health, auth/org, transaction CRUD, and financial summary.
+
+## 2b. Proposed endpoints (accrual-lite & extended)
+
+| Method   | Path                               | Purpose                      |
+| -------- | ---------------------------------- | ---------------------------- |
+| GET      | `/api/v1/balance-sheet`            | Snapshot neraca terakhir     |
+| GET      | `/api/v1/ratios`                   | 16 rasio CFO                 |
+| GET      | `/api/v1/ratios/thresholds`        | Threshold rasio per industri |
+| PATCH    | `/api/v1/ratios/thresholds/{code}` | Update threshold             |
+| POST     | `/api/v1/ratios/{code}/explain`    | Narasi AI untuk rasio        |
+| GET/POST | `/api/v1/receivables`              | Piutang dagang               |
+| GET/POST | `/api/v1/payables`                 | Hutang dagang                |
+| GET/POST | `/api/v1/inventory-items`          | Item inventori               |
+| GET/POST | `/api/v1/fixed-assets`             | Aset tetap                   |
+| GET/POST | `/api/v1/loans`                    | Pinjaman                     |
+| GET/POST | `/api/v1/balance-sheets`           | Snapshot neraca (CRUD)       |
+| GET/POST | `/api/v1/accounting-periods`       | Periode akuntansi            |
+| POST     | `/api/v1/forecasts/backtest`       | Walk-forward backtest        |
+| GET      | `/api/v1/forecasts/backtests`      | Daftar hasil backtest        |
+| POST     | `/api/v1/auth/logout`              | Logout / revoke token        |
 
 Registration accepts `email`, `password` (minimum 8 characters), `full_name`,
 `organization_name`, and optional `industry`. Login returns `access_token` and
@@ -55,6 +75,7 @@ Registration accepts `email`, `password` (minimum 8 characters), `full_name`,
 ## 3. Query parameters
 
 Financial endpoints:
+
 - `from`: inclusive start date.
 - `to`: inclusive end date.
 - `compare`: optional comparable prior period.
@@ -62,6 +83,7 @@ Financial endpoints:
 - organization is derived from authorized context or validated membership, never trusted blindly.
 
 Transaction list (`GET /api/v1/transactions`):
+
 - `from`, `to` (required): inclusive date range.
 - `limit` (default 50, max 200), `offset`.
 - `tx_type`: filter by transaction type.
@@ -76,14 +98,21 @@ Transaction list (`GET /api/v1/transactions`):
 
 ```json
 {
-  "period": {"from": "2026-01-01", "to": "2026-01-31"},
+  "period": { "from": "2026-01-01", "to": "2026-01-31" },
   "currency": "IDR",
-  "data_quality": {"status": "partial", "warnings": ["Opening inventory balance is missing"]},
+  "data_quality": {
+    "status": "partial",
+    "warnings": ["Opening inventory balance is missing"]
+  },
   "formula_version": "1.0.0",
   "generated_at": "2026-02-01T03:00:00Z",
   "metrics": {
-    "net_revenue": {"value": "12500000.00", "status": "available"},
-    "net_profit": {"value": null, "status": "unavailable", "reason": "Expense classification incomplete"}
+    "net_revenue": { "value": "12500000.00", "status": "available" },
+    "net_profit": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "Expense classification incomplete"
+    }
   }
 }
 ```
@@ -137,7 +166,7 @@ Full behavior and ratio definitions: `docs/RATIO_CFO_SPEC.md` §5–§8.
 
 ```json
 {
-  "period": {"from": "2026-10-01", "to": "2026-10-31"},
+  "period": { "from": "2026-10-01", "to": "2026-10-31" },
   "as_of": "2026-10-31",
   "currency": "IDR",
   "formula_version": "1.1.0",
@@ -166,8 +195,16 @@ Full behavior and ratio definitions: `docs/RATIO_CFO_SPEC.md` §5–§8.
       "display": "4.70x",
       "status": "available",
       "quality": "ok",
-      "inputs": {"current_assets": "133100000.00", "current_liabilities": "28300000.00"},
-      "threshold": {"target": "1.5000", "warning": "1.2000", "critical": "1.0000", "direction": "higher"},
+      "inputs": {
+        "current_assets": "133100000.00",
+        "current_liabilities": "28300000.00"
+      },
+      "threshold": {
+        "target": "1.5000",
+        "warning": "1.2000",
+        "critical": "1.0000",
+        "direction": "higher"
+      },
       "band": "above_target",
       "interpretation": "Nilai rasio memenuhi target.",
       "unit": "x",
@@ -201,7 +238,7 @@ explanatory state instead.
   "error": {
     "code": "VALIDATION_ERROR",
     "message": "The request contains invalid fields.",
-    "details": [{"field": "transaction_date", "reason": "Invalid date"}]
+    "details": [{ "field": "transaction_date", "reason": "Invalid date" }]
   },
   "request_id": "server-generated-id"
 }

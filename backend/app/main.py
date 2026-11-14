@@ -1,5 +1,7 @@
-import csv, hashlib, io, secrets, uuid
-from datetime import date, datetime, timezone
+import csv, hashlib, io, os, secrets, time, uuid
+from collections import defaultdict
+from contextlib import asynccontextmanager
+from datetime import date, datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Optional
 from fastapi import FastAPI, Depends, HTTPException, Query, Request, UploadFile, File
@@ -9,7 +11,7 @@ from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from .db import engine, get_db, Base
 from . import models, schemas
-from .security import hash_password, verify_password, get_current_user, get_current_org
+from .security import hash_password, verify_password, get_current_user, get_current_org, bearer
 from .financial_engine import (
     summarize,
     calculate_profit_loss,
@@ -25,20 +27,20 @@ from . import ratio_service
 from . import ratio_narrative
 from .ratio_engine import RATIO_META
 
-app = FastAPI(title="ProfitAI API", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(engine)
+    yield
+
+app = FastAPI(title="ProfitAI API", version="0.1.0", lifespan=lifespan)
+
+_cors_origins_raw = os.getenv("CORS_ORIGINS", "http://localhost:3000")
+_cors_origins = [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
 app.add_middleware(CORSMiddleware,
-                   allow_origins=[
-                       "http://localhost:3000",
-                       "http://localhost:3001",
-                       "https://b3c9-114-10-94-138.ngrok-free.app",
-                   ],
+                   allow_origins=_cors_origins,
                    allow_credentials=True,
                    allow_methods=["*"],
                    allow_headers=["*"])
-
-@app.on_event("startup")
-def startup():
-    Base.metadata.create_all(engine)
 
 @app.middleware("http")
 async def add_request_id(request: Request, call_next):
@@ -46,6 +48,20 @@ async def add_request_id(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Request-ID"] = request.state.request_id
     return response
+
+# In-memory rate limiter untuk auth endpoints
+_auth_attempts: dict = defaultdict(list)
+_AUTH_LIMIT = 10        # max attempts
+_AUTH_WINDOW = 60       # detik
+
+def _check_rate_limit(ip: str):
+    now = time.time()
+    attempts = _auth_attempts[ip]
+    # Buang attempts yang sudah expired
+    _auth_attempts[ip] = [t for t in attempts if now - t < _AUTH_WINDOW]
+    if len(_auth_attempts[ip]) >= _AUTH_LIMIT:
+        raise HTTPException(429, "Terlalu banyak percobaan login. Coba lagi dalam 1 menit.")
+    _auth_attempts[ip].append(now)
 
 @app.exception_handler(HTTPException)
 async def http_error(request: Request, exc: HTTPException):
@@ -109,6 +125,7 @@ def list_models():
 
 @app.post("/api/v1/auth/register", status_code=201)
 def register(p: schemas.RegisterIn, request: Request, db=Depends(get_db)):
+    _check_rate_limit(request.client.host if request.client else "unknown")
     email = p.email.strip().lower()
     if "@" not in email:
         raise HTTPException(422, "Email tidak valid")
@@ -129,14 +146,25 @@ def register(p: schemas.RegisterIn, request: Request, db=Depends(get_db)):
 
 @app.post("/api/v1/auth/login")
 def login(p: schemas.LoginIn, request: Request, db=Depends(get_db)):
+    _check_rate_limit(request.client.host if request.client else "unknown")
     user = db.query(models.User).filter_by(email=p.email.strip().lower()).first()
     if not user or not verify_password(p.password, user.password_hash):
         raise HTTPException(401, "Email atau password salah")
     token = secrets.token_urlsafe(32)
-    db.add(models.Session(token=token, user_id=user.id))
+    db.add(models.Session(token=token, user_id=user.id,
+                          expires_at=datetime.now(timezone.utc) + timedelta(days=7)))
     log_audit(db, None, user.id, "USER_LOGGED_IN", "sessions", None, {"email": user.email})
     db.commit()
     return {"access_token": token, "token_type": "bearer"}
+
+@app.post("/api/v1/auth/logout")
+def logout(creds=Depends(bearer), db=Depends(get_db)):
+    if creds:
+        sess = db.get(models.Session, creds.credentials)
+        if sess:
+            db.delete(sess)
+            db.commit()
+    return {"message": "Logout berhasil"}
 
 @app.get("/api/v1/me")
 def me(user=Depends(get_current_user), org_id=Depends(get_current_org), db=Depends(get_db)):
@@ -614,7 +642,7 @@ def list_calculation_runs(limit: int = 20, org_id=Depends(get_current_org), db=D
 # 8. RISK RULES & SIGNALS
 # ==========================================
 @app.get("/api/v1/risk-rules")
-def list_risk_rules(db=Depends(get_db)):
+def list_risk_rules(user=Depends(get_current_user), db=Depends(get_db)):
     rules = db.query(models.RiskRuleVersion).all()
     return [{
         "id": r.id, "rule_code": r.rule_code, "version": r.version,
@@ -622,7 +650,8 @@ def list_risk_rules(db=Depends(get_db)):
     } for r in rules]
 
 @app.patch("/api/v1/risk-rules/{rule_code}")
-def update_risk_rule(rule_code: str, p: schemas.RiskRuleUpdate, user=Depends(get_current_user), db=Depends(get_db)):
+def update_risk_rule(rule_code: str, p: schemas.RiskRuleUpdate,
+                     user=Depends(get_current_user), org_id=Depends(get_current_org), db=Depends(get_db)):
     r = db.query(models.RiskRuleVersion).filter_by(rule_code=rule_code).first()
     if not r:
         raise HTTPException(404, "Rule tidak ditemukan")
@@ -1848,6 +1877,7 @@ def run_forecast_backtest(p: schemas.ForecastBacktestCreate, user=Depends(get_cu
 # ==========================================
 @app.get("/api/v1/recommendations")
 def recommendations(date_from: date = Query(alias="from"), date_to: date = Query(alias="to"),
+                    limit: int = Query(50, le=200), offset: int = 0,
                     org_id=Depends(get_current_org), db=Depends(get_db)):
     rows = db.query(models.Transaction).filter(
         models.Transaction.organization_id == org_id,
@@ -1872,8 +1902,11 @@ def recommendations(date_from: date = Query(alias="from"), date_to: date = Query
                 status=rec["status"]
             ))
     db.commit()
-    # Read persisted recommendations with their IDs
-    db_recs = db.query(models.Recommendation).filter_by(organization_id=org_id).order_by(models.Recommendation.id.desc()).all()
+    # Read persisted recommendations with their IDs, using limit/offset
+    db_recs = (db.query(models.Recommendation)
+               .filter_by(organization_id=org_id)
+               .order_by(models.Recommendation.id.desc())
+               .limit(limit).offset(offset).all())
     res["recommendations"] = [{
         "id": str(r.id), "rule_id": r.rule_id, "rule_version": r.rule_version,
         "title": r.title, "priority": r.priority, "trigger_metrics": r.trigger_metrics,

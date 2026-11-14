@@ -57,13 +57,24 @@ def test_zero_revenue_denominator_handling():
 
 def test_reversal_negates_original_transaction():
     txs = [
-        MockTx("2500000.00", "income", status="reversed"),  # Original reversed tx
-        MockTx("2500000.00", "income", status="posted", reversal_of_id=1),  # Reversal row
-        MockTx("2500000.00", "income", status="posted"),  # Original valid row
+        # Transaksi original yang sudah di-reverse (status=reversed, diabaikan engine)
+        MockTx("2500000.00", "income", status="reversed"),
+        # Baris reversal (reversal_of_id != None, diabaikan engine)
+        MockTx("2500000.00", "income", status="posted", reversal_of_id=1),
     ]
     summary = summarize(txs, date(2026, 3, 1), date(2026, 3, 31))
-    # Original reversed row is ignored, reversal row (-2.5M) and posted row (+2.5M) cancel out
+    # Keduanya diabaikan → net_revenue = 0
     assert summary["metrics"]["net_revenue"]["value"] == "0.00"
+
+def test_valid_income_after_reversal_pair():
+    txs = [
+        MockTx("2500000.00", "income", status="reversed"),    # diabaikan
+        MockTx("2500000.00", "income", status="posted", reversal_of_id=1),  # diabaikan
+        MockTx("2500000.00", "income", status="posted"),       # valid, dihitung
+    ]
+    summary = summarize(txs, date(2026, 3, 1), date(2026, 3, 31))
+    # Hanya transaksi ketiga yang dihitung
+    assert summary["metrics"]["net_revenue"]["value"] == "2500000.00"
 
 def test_profit_loss_report():
     txs = [
