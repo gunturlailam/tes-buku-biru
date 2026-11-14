@@ -15,6 +15,14 @@ import Image from "next/image";
 export default function LoginPage() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+    remember: false,
+  });
 
   useEffect(() => {
     if (getAccessToken()) {
@@ -24,16 +32,16 @@ export default function LoginPage() {
     }
   }, [router]);
 
-  if (checking) return null;
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    remember: false,
-  });
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f5f4f0]">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-300 border-t-[#ffc900] mb-4"></div>
+          <p className="text-sm text-[#666666]">Memeriksa sesi...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
