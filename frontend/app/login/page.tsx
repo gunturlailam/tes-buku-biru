@@ -25,9 +25,13 @@ export default function LoginPage() {
   });
 
   useEffect(() => {
-    if (getAccessToken()) {
+    const token = getAccessToken();
+    if (token) {
+      // Already logged in, redirect to dashboard
       router.replace("/dashboard");
+      // Keep checking true to show loading until redirect completes
     } else {
+      // No token, show login form
       setChecking(false);
     }
   }, [router]);
@@ -68,7 +72,14 @@ export default function LoginPage() {
         password: formData.password,
       });
       saveAccessToken(access_token, formData.remember);
+      
+      // Redirect to dashboard
       router.replace("/dashboard");
+      
+      // Safety: reset loading after 3 seconds if redirect hasn't happened
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 3000);
     } catch (error) {
       setError(getErrorMessage(error));
       setIsLoading(false);
