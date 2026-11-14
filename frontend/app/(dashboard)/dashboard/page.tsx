@@ -2,8 +2,6 @@
 
 import { useState, useMemo } from "react";
 import { KPICard } from "@/components/dashboard/KPICard";
-import { DataQualityBadge } from "@/components/shared/DataQualityBadge";
-import { RiskLevelBadge } from "@/components/shared/RiskLevelBadge";
 import { useFinancialSummary } from "@/hooks/use-financial-summary";
 import { useFinancialHealth } from "@/features/insights/hooks/use-financial-health";
 import { useTransactions } from "@/hooks/use-transactions";
@@ -16,10 +14,7 @@ import {
   TrendingUp,
   Wallet,
   AlertCircle,
-  Sparkles,
-  Target,
   ArrowRight,
-  BarChart3,
   Brain,
   Zap,
   Clock,
@@ -105,49 +100,49 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6 bg-[#fafaf9]">
+    <div className="space-y-6 bg-[#fafaf9] -mx-6 px-6">
       {/* Section Title */}
-      <div className="flex items-center gap-2">
-        <div className="w-1 h-6 bg-[#ffc900] rounded-full"></div>
+      <div className="flex items-center gap-2.5 pt-1">
+        <div className="w-1.5 h-7 bg-[#ffc900] rounded-full"></div>
         <span className="text-xs font-bold uppercase tracking-wider text-[#999999]">
           Performa Bisnis
         </span>
       </div>
 
       {/* Financial Overview Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold text-[#1f1f1f] mb-2">
+      <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 lg:gap-6">
+        <div className="flex-1">
+          <h2 className="text-3xl lg:text-3xl font-bold text-[#1f1f1f] mb-2 leading-tight">
             Financial Overview
           </h2>
           <div className="flex items-center gap-2 text-sm text-[#666666]">
-            <Clock className="w-4 h-4" />
-            <span>
+            <Clock className="w-4 h-4 flex-shrink-0" strokeWidth={2} />
+            <span className="font-medium">
               {data.period.from} - {data.period.to}
             </span>
           </div>
         </div>
 
         {/* Period Selector & Data Quality */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 lg:gap-3">
           <div className="inline-flex bg-white border border-[#e5e5e5] rounded-lg p-1 shadow-sm">
             {(["MTD", "QTD", "YTD"] as PeriodType[]).map((period) => (
               <button
                 key={period}
                 onClick={() => setSelectedPeriod(period)}
-                className={`px-3 py-2 text-xs font-bold rounded transition-all ${
+                className={`px-3.5 py-2 text-xs font-bold rounded-md transition-all duration-200 ${
                   selectedPeriod === period
-                    ? "bg-[#ffc900] text-[#1f1f1f] shadow-sm"
-                    : "text-[#666666] hover:text-[#1f1f1f]"
+                    ? "bg-[#ffc900] text-[#1f1f1f] shadow-md"
+                    : "text-[#666666] hover:text-[#1f1f1f] hover:bg-[#f5f5f5]"
                 }`}
               >
                 {period}
               </button>
             ))}
           </div>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#e8f5e9] text-[#2e7d32] text-xs font-bold rounded-lg border border-[#c8e6c9]">
-            <span className="w-2 h-2 bg-[#2e7d32] rounded-full"></span>
-            Data Depot Dieperbarui
+          <span className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#e8f5e9] text-[#2e7d32] text-xs font-bold rounded-lg border border-[#c8e6c9] whitespace-nowrap">
+            <span className="w-2 h-2 bg-[#2e7d32] rounded-full flex-shrink-0"></span>
+            <span>Data Depot Dieperbarui</span>
           </span>
         </div>
       </div>
@@ -156,16 +151,16 @@ export default function DashboardPage() {
       {data.data_quality.warnings && data.data_quality.warnings.length > 0 && (
         <div className="bg-[#fff9e6] border-l-4 border-[#ffc900] rounded-lg p-4 shadow-sm flex gap-3">
           <div className="w-5 h-5 flex-shrink-0 mt-0.5">
-            <AlertCircle className="w-5 h-5 text-[#f39c12]" />
+            <AlertCircle className="w-5 h-5 text-[#f39c12]" strokeWidth={2} />
           </div>
           <div className="flex-1">
-            <h4 className="text-sm font-bold text-[#8b6914] mb-1">
+            <h4 className="text-sm font-bold text-[#8b6914] mb-1.5">
               Perhatian Kualitas Data
             </h4>
             <ul className="text-sm text-[#8b6914] space-y-1">
               {data.data_quality.warnings.map((warning, idx) => (
                 <li key={idx} className="flex items-start gap-2">
-                  <span className="text-[#ffc900] mt-0.5">•</span>
+                  <span className="text-[#ffc900] mt-0.5 font-bold">•</span>
                   <span>{warning}</span>
                 </li>
               ))}
@@ -175,7 +170,7 @@ export default function DashboardPage() {
       )}
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6">
         <KPICard
           title="Pendapatan Bersih"
           value={data.metrics.net_revenue}
@@ -213,29 +208,29 @@ export default function DashboardPage() {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* AI Intelligence Panel */}
-        <section className="lg:col-span-8 bg-[#1a1a1a] text-white rounded-3xl p-8 relative overflow-hidden shadow-lg">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-[#ffc900]/10 rounded-full blur-3xl -z-0"></div>
+        <section className="lg:col-span-8 bg-[#1a1a1a] text-white rounded-2xl p-7 relative overflow-hidden shadow-md">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-[#ffc900]/10 rounded-full blur-3xl -z-0"></div>
           
           <div className="relative z-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#ffc900]/20 border border-[#ffc900]/40 mb-4">
-              <Brain className="w-3.5 h-3.5 text-[#ffc900]" />
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#ffc900]/20 border border-[#ffc900]/40 mb-4">
+              <Brain className="w-3.5 h-3.5 text-[#ffc900]" strokeWidth={2.5} />
               <span className="text-xs font-bold text-[#ffc900] uppercase tracking-wide">
                 ProfitAI Intelligence
               </span>
             </div>
 
-            <h2 className="text-3xl font-bold text-white mb-3">
+            <h2 className="text-3xl font-bold text-white mb-2.5 leading-tight">
               Analisis Keuangan Cerdas
             </h2>
-            <p className="text-sm text-[#cccccc] mb-6">
+            <p className="text-sm text-[#d0d0d0] mb-5 leading-relaxed max-w-2xl">
               Insight berbasis AI untuk optimalisasi performa bisnis Anda.
             </p>
 
             {/* AI Insights */}
             <div className="space-y-3 mb-6">
               <div className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-lg bg-[#ffc900]/30 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Zap className="w-4 h-4 text-[#ffc900]" />
+                <div className="w-7 h-7 rounded-lg bg-[#ffc900]/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Zap className="w-4 h-4 text-[#ffc900]" strokeWidth={2.5} />
                 </div>
                 <div>
                   <p className="text-sm text-[#e0e0e0] leading-relaxed">
@@ -245,8 +240,8 @@ export default function DashboardPage() {
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-lg bg-[#ffc900]/30 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Zap className="w-4 h-4 text-[#ffc900]" />
+                <div className="w-7 h-7 rounded-lg bg-[#ffc900]/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Zap className="w-4 h-4 text-[#ffc900]" strokeWidth={2.5} />
                 </div>
                 <div>
                   <p className="text-sm text-[#e0e0e0] leading-relaxed">
@@ -256,8 +251,8 @@ export default function DashboardPage() {
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-lg bg-[#ffc900]/30 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Zap className="w-4 h-4 text-[#ffc900]" />
+                <div className="w-7 h-7 rounded-lg bg-[#ffc900]/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Zap className="w-4 h-4 text-[#ffc900]" strokeWidth={2.5} />
                 </div>
                 <div>
                   <p className="text-sm text-[#e0e0e0] leading-relaxed">
@@ -269,26 +264,26 @@ export default function DashboardPage() {
 
             <Link
               href="/insights"
-              className="inline-flex items-center gap-2 bg-[#ffc900] text-[#1f1f1f] px-5 py-3 rounded-lg font-bold text-sm hover:bg-[#f0bd00] transition-all shadow-lg"
+              className="inline-flex items-center gap-2 bg-[#ffc900] text-[#1f1f1f] px-5 py-2.5 rounded-lg font-bold text-sm hover:bg-[#f0bd00] transition-all shadow-lg hover:shadow-xl"
             >
               <span>Lihat Analisis Lengkap</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4" strokeWidth={2.5} />
             </Link>
           </div>
         </section>
 
         {/* Financial Health Sidebar */}
-        <aside className="lg:col-span-4 space-y-6">
+        <aside className="lg:col-span-4 space-y-4">
           {/* Health Score */}
           <div className="bg-white rounded-2xl p-6 border border-[#e5e5e5] shadow-sm">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-[#1f1f1f]">Kesehatan Finansial</h3>
-              <Link href="/insights" className="text-xs font-bold text-[#ffc900] hover:text-[#f0bd00]">
+              <Link href="/insights" className="text-xs font-bold text-[#ffc900] hover:text-[#f0bd00] transition-colors">
                 Detail →
               </Link>
             </div>
 
-            <div className="flex items-center gap-4 mb-6">
+            <div className="flex items-center gap-4 mb-5">
               <div className={`w-24 h-24 flex-shrink-0 rounded-full border-4 flex items-center justify-center text-center font-bold text-2xl ${
                 healthLevel === "critical"
                   ? "border-red-300 bg-red-50 text-red-600"
@@ -300,16 +295,16 @@ export default function DashboardPage() {
               }`}>
                 {healthLevel === "normal" ? "85%" : healthLabel}
               </div>
-              <div>
-                <h4 className="text-base font-bold text-[#1f1f1f] mb-1">
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-[#1f1f1f] mb-0.5">
                   {healthLevel === "normal" ? "Sangat Baik" : healthLabel}
                 </h4>
-                <p className="text-xs text-[#666666]">{healthDescription}</p>
+                <p className="text-xs text-[#666666] leading-relaxed">{healthDescription}</p>
               </div>
             </div>
 
             {/* Indicators */}
-            <div className="space-y-3">
+            <div className="space-y-2.5 border-t border-[#e5e5e5] pt-4">
               {[
                 { label: "Likuiditas", status: "Baik" },
                 { label: "Profitabilitas", status: "Baik" },
@@ -331,27 +326,27 @@ export default function DashboardPage() {
 
       {/* Bottom Section: Recent Activity */}
       <div className="bg-white rounded-2xl p-6 border border-[#e5e5e5] shadow-sm">
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-bold text-[#1f1f1f]">Aktivitas Terkini</h3>
-            <p className="text-xs text-[#999999]">Transaksi dan perubahan terbaru</p>
+            <p className="text-xs text-[#999999] mt-0.5">Transaksi dan perubahan terbaru</p>
           </div>
-          <Link href="/transactions" className="inline-flex items-center gap-2 text-sm font-bold text-[#ffc900] hover:text-[#f0bd00]">
+          <Link href="/transactions" className="inline-flex items-center gap-2 text-sm font-bold text-[#ffc900] hover:text-[#f0bd00] transition-colors">
             <span>Lihat Semua</span>
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="w-4 h-4" strokeWidth={2.5} />
           </Link>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {recent.length > 0 ? (
             recent.map((transaction) => (
               <div
                 key={transaction.id}
-                className="flex items-center justify-between p-3 bg-[#f5f5f5] hover:bg-[#eeeeee] rounded-lg transition-colors"
+                className="flex items-center justify-between p-3.5 bg-[#f5f5f5] hover:bg-[#eeeeee] rounded-lg transition-colors duration-200"
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold ${
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg flex-shrink-0 ${
                       transaction.tx_type === "income"
                         ? "bg-[#e8f5e9] text-[#2e7d32]"
                         : "bg-[#ffebee] text-[#c62828]"
@@ -363,7 +358,7 @@ export default function DashboardPage() {
                     <p className="text-sm font-semibold text-[#1f1f1f]">
                       {transaction.description}
                     </p>
-                    <p className="text-xs text-[#999999]">
+                    <p className="text-xs text-[#999999] mt-0.5">
                       {formatDate(
                         transaction.transaction_date || transaction.date || "",
                       )}
@@ -380,7 +375,7 @@ export default function DashboardPage() {
               </div>
             ))
           ) : (
-            <p className="text-sm text-[#999999]">
+            <p className="text-sm text-[#999999] text-center py-5">
               Belum ada transaksi pada periode ini.
             </p>
           )}

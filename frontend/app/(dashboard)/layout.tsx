@@ -82,7 +82,7 @@ export default function DashboardLayout({
       <Suspense fallback={<div className="w-60 flex-shrink-0 bg-white border-r" />}>
         <Sidebar />
       </Suspense>
-      <main className="flex-1 flex flex-col px-8 py-6 overflow-y-auto">
+      <main className="flex-1 flex flex-col px-6 py-4 overflow-y-auto">
         <Suspense fallback={<div className="h-20" />}>
           <Navbar />
         </Suspense>
