@@ -46,6 +46,8 @@ export interface FinancialSummary {
   generated_at: string; // ISO 8601 timestamp
   metrics: {
     net_revenue: MetricValue;
+    total_expense?: MetricValue;
+    simple_surplus?: MetricValue;
     gross_profit?: MetricValue;
     net_profit: MetricValue;
     cash_in: MetricValue;

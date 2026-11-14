@@ -5,7 +5,10 @@ import { KPICard } from "@/components/dashboard/KPICard";
 import { DataQualityBadge } from "@/components/shared/DataQualityBadge";
 import { RiskLevelBadge } from "@/components/shared/RiskLevelBadge";
 import { useFinancialSummary } from "@/hooks/use-financial-summary";
+import { useFinancialHealth } from "@/features/insights/hooks/use-financial-health";
+import { useTransactions } from "@/hooks/use-transactions";
 import { getDateRangeForPeriod, type PeriodType } from "@/lib/date-utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Alert } from "@/components/ui/Alert";
 import {
@@ -19,21 +22,57 @@ import {
   BarChart3,
   Brain,
   Zap,
-  ShieldCheck,
   Clock,
 } from "lucide-react";
 import Link from "next/link";
 
+interface RecentTransaction {
+  id: number;
+  transaction_date?: string;
+  date?: string;
+  description: string;
+  amount: string | number;
+  tx_type: string;
+}
+
 export default function DashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>("MTD");
 
-  // Get date range based on selected period
   const dateRange = useMemo(() => getDateRangeForPeriod(selectedPeriod), [selectedPeriod]);
 
-  // Fetch financial summary from API
   const { data, isLoading, error } = useFinancialSummary(dateRange);
+  const { data: health } = useFinancialHealth(dateRange);
+  const { data: recentTransactions = [] } = useTransactions({
+    limit: 3,
+    from_date: dateRange.from,
+    to_date: dateRange.to,
+  });
 
-  // Loading state
+  const recent = recentTransactions as RecentTransaction[];
+  const signals = health?.signals ?? [];
+  const criticalCount = signals.filter((s) => s.level === "critical").length;
+  const attentionCount = signals.filter((s) => s.level === "attention").length;
+  const healthLevel =
+    criticalCount > 0
+      ? "critical"
+      : attentionCount > 0
+        ? "attention"
+        : signals.length > 0
+          ? "normal"
+          : "insufficient";
+  const healthLabel =
+    healthLevel === "critical"
+      ? "Kritis"
+      : healthLevel === "attention"
+        ? "Perlu Perhatian"
+        : healthLevel === "normal"
+          ? "Sehat"
+          : "Data Minim";
+  const healthDescription =
+    signals.length === 0
+      ? "Belum ada sinyal risiko pada periode ini."
+      : `${signals.length} sinyal terdeteksi (${criticalCount} kritis, ${attentionCount} perhatian).`;
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -45,10 +84,9 @@ export default function DashboardPage() {
     );
   }
 
-  // Error state
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-6">
         <Alert variant="error">
           Gagal memuat data finansial. Pastikan backend berjalan dan coba refresh halaman.
         </Alert>
@@ -56,10 +94,9 @@ export default function DashboardPage() {
     );
   }
 
-  // No data state
   if (!data) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-6">
         <Alert variant="warning">
           Tidak ada data finansial untuk periode ini.
         </Alert>
@@ -68,14 +105,22 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Header with Period Selector */}
+    <div className="space-y-6 bg-[#fafaf9]">
+      {/* Section Title */}
+      <div className="flex items-center gap-2">
+        <div className="w-1 h-6 bg-[#ffc900] rounded-full"></div>
+        <span className="text-xs font-bold uppercase tracking-wider text-[#999999]">
+          Performa Bisnis
+        </span>
+      </div>
+
+      {/* Financial Overview Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">
+          <h2 className="text-3xl font-bold text-[#1f1f1f] mb-2">
             Financial Overview
-          </h1>
-          <div className="flex items-center gap-2 text-sm text-gray-500">
+          </h2>
+          <div className="flex items-center gap-2 text-sm text-[#666666]">
             <Clock className="w-4 h-4" />
             <span>
               {data.period.from} - {data.period.to}
@@ -85,73 +130,73 @@ export default function DashboardPage() {
 
         {/* Period Selector & Data Quality */}
         <div className="flex items-center gap-3">
-          <div className="inline-flex bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
+          <div className="inline-flex bg-white border border-[#e5e5e5] rounded-lg p-1 shadow-sm">
             {(["MTD", "QTD", "YTD"] as PeriodType[]).map((period) => (
               <button
                 key={period}
                 onClick={() => setSelectedPeriod(period)}
-                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                className={`px-3 py-2 text-xs font-bold rounded transition-all ${
                   selectedPeriod === period
-                    ? "bg-emerald-600 text-white shadow-sm"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                    ? "bg-[#ffc900] text-[#1f1f1f] shadow-sm"
+                    : "text-[#666666] hover:text-[#1f1f1f]"
                 }`}
               >
                 {period}
               </button>
             ))}
           </div>
-          <DataQualityBadge status={data.data_quality.status} />
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#e8f5e9] text-[#2e7d32] text-xs font-bold rounded-lg border border-[#c8e6c9]">
+            <span className="w-2 h-2 bg-[#2e7d32] rounded-full"></span>
+            Data Depot Dieperbarui
+          </span>
         </div>
       </div>
 
       {/* Data Quality Warning */}
       {data.data_quality.warnings && data.data_quality.warnings.length > 0 && (
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex gap-3">
-            <div className="flex-shrink-0">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-                <AlertCircle className="w-5 h-5 text-amber-600" />
-              </div>
-            </div>
-            <div className="flex-1">
-              <h4 className="text-sm font-bold text-amber-900 mb-1">
-                Peringatan Kualitas Data
-              </h4>
-              <ul className="text-sm text-amber-800 space-y-1">
-                {data.data_quality.warnings.map((warning, idx) => (
-                  <li key={idx} className="flex items-start gap-2">
-                    <span className="text-amber-500 mt-0.5">•</span>
-                    <span>{warning}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+        <div className="bg-[#fff9e6] border-l-4 border-[#ffc900] rounded-lg p-4 shadow-sm flex gap-3">
+          <div className="w-5 h-5 flex-shrink-0 mt-0.5">
+            <AlertCircle className="w-5 h-5 text-[#f39c12]" />
+          </div>
+          <div className="flex-1">
+            <h4 className="text-sm font-bold text-[#8b6914] mb-1">
+              Perhatian Kualitas Data
+            </h4>
+            <ul className="text-sm text-[#8b6914] space-y-1">
+              {data.data_quality.warnings.map((warning, idx) => (
+                <li key={idx} className="flex items-start gap-2">
+                  <span className="text-[#ffc900] mt-0.5">•</span>
+                  <span>{warning}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       )}
 
-      {/* KPI Cards Grid - Premium Design */}
+      {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <KPICard
           title="Pendapatan Bersih"
           value={data.metrics.net_revenue}
           currency={data.currency}
           icon={<DollarSign className="w-5 h-5 text-white" strokeWidth={2.5} />}
-          iconBg="bg-gradient-to-br from-emerald-600 to-emerald-700"
-          trend={{ value: 12.5, label: "vs bulan lalu" }}
-          sparklineColor="#10b981"
-          sparklineGradient="emeraldGrad"
+          iconBg="bg-[#ffc900]"
+          sparklineColor="#ffc900"
+          sparklineGradient="yellowGrad"
         />
 
         <KPICard
           title="Laba Bersih"
-          value={data.metrics.net_profit}
+          value={
+            data.metrics.simple_surplus ??
+            data.metrics.net_profit
+          }
           currency={data.currency}
           icon={<TrendingUp className="w-5 h-5 text-white" strokeWidth={2.5} />}
-          iconBg="bg-gradient-to-br from-blue-600 to-blue-700"
-          trend={{ value: 8.3, label: "vs bulan lalu" }}
-          sparklineColor="#3b82f6"
-          sparklineGradient="blueGrad"
+          iconBg="bg-[#1f1f1f]"
+          sparklineColor="#1f1f1f"
+          sparklineGradient="darkGrad"
         />
 
         <KPICard
@@ -159,267 +204,186 @@ export default function DashboardPage() {
           value={data.metrics.net_cash_flow}
           currency={data.currency}
           icon={<Wallet className="w-5 h-5 text-white" strokeWidth={2.5} />}
-          iconBg="bg-gradient-to-br from-violet-600 to-violet-700"
-          trend={{ value: 9.6, label: "vs bulan lalu" }}
-          sparklineColor="#8b5cf6"
-          sparklineGradient="violetGrad"
+          iconBg="bg-[#333333]"
+          sparklineColor="#333333"
+          sparklineGradient="grayGrad"
         />
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* AI Intelligence Panel - Featured */}
-        <section className="lg:col-span-8 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white rounded-3xl p-6 relative overflow-hidden shadow-2xl hover-lift">
-          {/* Animated Background Elements */}
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/10 via-transparent to-blue-600/10" />
-          <div className="absolute -right-20 -top-20 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl" />
-          <div className="absolute -left-20 -bottom-20 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl" />
-
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* AI Intelligence Panel */}
+        <section className="lg:col-span-8 bg-[#1a1a1a] text-white rounded-3xl p-8 relative overflow-hidden shadow-lg">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-[#ffc900]/10 rounded-full blur-3xl -z-0"></div>
+          
           <div className="relative z-10">
-            {/* Header */}
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 mb-3">
-                  <Brain className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-xs font-bold text-emerald-300 uppercase tracking-wide">
-                    ProfitAI Intelligence
-                  </span>
-                </div>
-                <h2 className="text-2xl font-bold text-white mb-2">
-                  Analisis Keuangan Cerdas
-                </h2>
-                <p className="text-sm text-gray-300">
-                  Insight berbasis AI untuk optimasi performa bisnis Anda
-                </p>
-              </div>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#ffc900]/20 border border-[#ffc900]/40 mb-4">
+              <Brain className="w-3.5 h-3.5 text-[#ffc900]" />
+              <span className="text-xs font-bold text-[#ffc900] uppercase tracking-wide">
+                ProfitAI Intelligence
+              </span>
             </div>
 
-            {/* AI Insights Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              {/* Insight Card 1 */}
-              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                    <Zap className="w-5 h-5 text-emerald-400" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-white mb-1">
-                      Peningkatan Arus Kas
-                    </h4>
-                    <p className="text-xs text-gray-300 leading-relaxed">
-                      Arus kas meningkat 9.6%. Pertahankan momentum dengan mengelola piutang.
-                    </p>
-                  </div>
+            <h2 className="text-3xl font-bold text-white mb-3">
+              Analisis Keuangan Cerdas
+            </h2>
+            <p className="text-sm text-[#cccccc] mb-6">
+              Insight berbasis AI untuk optimalisasi performa bisnis Anda.
+            </p>
+
+            {/* AI Insights */}
+            <div className="space-y-3 mb-6">
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-lg bg-[#ffc900]/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Zap className="w-4 h-4 text-[#ffc900]" />
+                </div>
+                <div>
+                  <p className="text-sm text-[#e0e0e0] leading-relaxed">
+                    Pengeluaran tahunan <span className="font-bold">+23,5%</span> dibanding bulan lalu.
+                  </p>
                 </div>
               </div>
 
-              {/* Insight Card 2 */}
-              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                    <Target className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-white mb-1">
-                      Margin Profit Optimal
-                    </h4>
-                    <p className="text-xs text-gray-300 leading-relaxed">
-                      Margin laba 28% di atas rata-rata industri. Fokus pada efisiensi operasional.
-                    </p>
-                  </div>
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-lg bg-[#ffc900]/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Zap className="w-4 h-4 text-[#ffc900]" />
+                </div>
+                <div>
+                  <p className="text-sm text-[#e0e0e0] leading-relaxed">
+                    Margin laba untuk dikurangi karena & COGS nasar tangkah.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-lg bg-[#ffc900]/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Zap className="w-4 h-4 text-[#ffc900]" />
+                </div>
+                <div>
+                  <p className="text-sm text-[#e0e0e0] leading-relaxed">
+                    Aset dalam konteks sehat dan managerial <span className="font-bold">+8,6%</span>.
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* CTA */}
             <Link
               href="/insights"
-              className="inline-flex items-center gap-2 bg-white text-gray-900 px-5 py-3 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all shadow-lg hover:shadow-xl group"
+              className="inline-flex items-center gap-2 bg-[#ffc900] text-[#1f1f1f] px-5 py-3 rounded-lg font-bold text-sm hover:bg-[#f0bd00] transition-all shadow-lg"
             >
-              <span>Lihat Semua Insight</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <span>Lihat Analisis Lengkap</span>
+              <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </section>
 
-        {/* Quick Actions & Health */}
-        <aside className="lg:col-span-4 space-y-5">
-          {/* Financial Health Score */}
-          <div className="bg-white rounded-2xl p-5 border border-gray-200/60 shadow-premium hover:shadow-premium-lg transition-shadow">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-gray-900">Kesehatan Finansial</h3>
-              <Link
-                href="/insights"
-                className="text-xs font-semibold text-emerald-600 hover:text-emerald-700"
-              >
+        {/* Financial Health Sidebar */}
+        <aside className="lg:col-span-4 space-y-6">
+          {/* Health Score */}
+          <div className="bg-white rounded-2xl p-6 border border-[#e5e5e5] shadow-sm">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-sm font-bold text-[#1f1f1f]">Kesehatan Finansial</h3>
+              <Link href="/insights" className="text-xs font-bold text-[#ffc900] hover:text-[#f0bd00]">
                 Detail →
               </Link>
             </div>
 
-            {/* Health Score Circle */}
-            <div className="flex items-center gap-4 mb-5">
-              <div className="relative w-20 h-20 flex-shrink-0">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                  <path
-                    className="text-gray-200"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                  />
-                  <path
-                    className="text-emerald-500"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeDasharray="85, 100"
-                    strokeLinecap="round"
-                    strokeWidth="3"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xl font-bold text-gray-900">85%</span>
-                </div>
+            <div className="flex items-center gap-4 mb-6">
+              <div className={`w-24 h-24 flex-shrink-0 rounded-full border-4 flex items-center justify-center text-center font-bold text-2xl ${
+                healthLevel === "critical"
+                  ? "border-red-300 bg-red-50 text-red-600"
+                  : healthLevel === "attention"
+                    ? "border-amber-300 bg-amber-50 text-amber-600"
+                    : healthLevel === "normal"
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-600"
+                      : "border-gray-300 bg-gray-50 text-gray-600"
+              }`}>
+                {healthLevel === "normal" ? "85%" : healthLabel}
               </div>
               <div>
-                <h4 className="text-base font-bold text-gray-900 mb-1">Sangat Baik</h4>
-                <p className="text-xs text-gray-500">
-                  Semua indikator dalam kondisi sehat
-                </p>
+                <h4 className="text-base font-bold text-[#1f1f1f] mb-1">
+                  {healthLevel === "normal" ? "Sangat Baik" : healthLabel}
+                </h4>
+                <p className="text-xs text-[#666666]">{healthDescription}</p>
               </div>
             </div>
 
-            {/* Health Indicators */}
-            <div className="space-y-2">
+            {/* Indicators */}
+            <div className="space-y-3">
               {[
-                { label: "Arus Kas", status: "normal", color: "emerald" },
-                { label: "Margin Laba", status: "attention", color: "amber" },
-                { label: "Pendapatan", status: "normal", color: "emerald" },
+                { label: "Likuiditas", status: "Baik" },
+                { label: "Profitabilitas", status: "Baik" },
+                { label: "Aras Kas", status: "Sangat Baik" },
+                { label: "Efisiensi Operasional", status: "Baik" },
               ].map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        item.color === "emerald" ? "bg-emerald-500" : "bg-amber-500"
-                      }`}
-                    />
-                    <span className="text-xs font-semibold text-gray-700">{item.label}</span>
-                  </div>
-                  <RiskLevelBadge level={item.status as "normal" | "attention" | "critical" | "insufficient"} />
+                <div key={idx} className="flex items-center justify-between">
+                  <span className="text-xs text-[#666666]">{item.label}</span>
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-[#2e7d32]">
+                    <span className="w-2 h-2 bg-[#2e7d32] rounded-full"></span>
+                    {item.status}
+                  </span>
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="space-y-2.5">
-            <Link
-              href="/transactions/new"
-              className="group flex items-center gap-3 bg-white hover:bg-gray-50 border border-gray-200/60 hover:border-emerald-200 rounded-xl p-3.5 transition-all shadow-premium-sm hover:shadow-premium"
-            >
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white flex-shrink-0 group-hover:scale-110 transition-transform">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                  <path d="M12 4v16m8-8H4" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h4 className="text-sm font-bold text-gray-900 mb-0.5">Tambah Transaksi</h4>
-                <p className="text-xs text-gray-500">Catat transaksi baru</p>
-              </div>
-              <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" />
-            </Link>
-
-            <Link
-              href="/reports"
-              className="group flex items-center gap-3 bg-white hover:bg-gray-50 border border-gray-200/60 hover:border-blue-200 rounded-xl p-3.5 transition-all shadow-premium-sm hover:shadow-premium"
-            >
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white flex-shrink-0 group-hover:scale-110 transition-transform">
-                <BarChart3 className="w-5 h-5" strokeWidth="2.5" />
-              </div>
-              <div className="flex-1">
-                <h4 className="text-sm font-bold text-gray-900 mb-0.5">Lihat Laporan</h4>
-                <p className="text-xs text-gray-500">Laba rugi & arus kas</p>
-              </div>
-              <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
-            </Link>
-
-            <Link
-              href="/recommendations"
-              className="group flex items-center gap-3 bg-white hover:bg-gray-50 border border-gray-200/60 hover:border-violet-200 rounded-xl p-3.5 transition-all shadow-premium-sm hover:shadow-premium"
-            >
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center text-white flex-shrink-0 group-hover:scale-110 transition-transform">
-                <Sparkles className="w-5 h-5" strokeWidth="2.5" />
-              </div>
-              <div className="flex-1">
-                <h4 className="text-sm font-bold text-gray-900 mb-0.5">Rekomendasi AI</h4>
-                <p className="text-xs text-gray-500">Saran optimasi bisnis</p>
-              </div>
-              <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-violet-600 group-hover:translate-x-1 transition-all" />
-            </Link>
           </div>
         </aside>
       </div>
 
       {/* Bottom Section: Recent Activity */}
-      <div className="bg-white rounded-2xl p-6 border border-gray-200/60 shadow-premium">
+      <div className="bg-white rounded-2xl p-6 border border-[#e5e5e5] shadow-sm">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Aktivitas Terkini</h3>
-            <p className="text-xs text-gray-500">Transaksi dan perubahan terbaru</p>
+            <h3 className="text-lg font-bold text-[#1f1f1f]">Aktivitas Terkini</h3>
+            <p className="text-xs text-[#999999]">Transaksi dan perubahan terbaru</p>
           </div>
-          <Link
-            href="/transactions"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
-          >
+          <Link href="/transactions" className="inline-flex items-center gap-2 text-sm font-bold text-[#ffc900] hover:text-[#f0bd00]">
             <span>Lihat Semua</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
 
-        {/* Activity Items */}
         <div className="space-y-3">
-          {[
-            { type: "income", label: "Penjualan Produk", amount: "+Rp 5,250,000", time: "2 jam lalu" },
-            { type: "expense", label: "Pembelian Bahan Baku", amount: "-Rp 2,100,000", time: "5 jam lalu" },
-            { type: "income", label: "Transfer Bank", amount: "+Rp 8,500,000", time: "1 hari lalu" },
-          ].map((activity, idx) => (
-            <div
-              key={idx}
-              className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    activity.type === "income"
-                      ? "bg-emerald-100 text-emerald-600"
-                      : "bg-red-100 text-red-600"
-                  }`}
-                >
-                  {activity.type === "income" ? (
-                    <TrendingUp className="w-4.5 h-4.5" strokeWidth="2.5" />
-                  ) : (
-                    <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                      <path d="M19 14l-7 7m0 0l-7-7m7 7V3" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">{activity.label}</p>
-                  <p className="text-xs text-gray-500">{activity.time}</p>
-                </div>
-              </div>
-              <span
-                className={`text-sm font-bold financial-number ${
-                  activity.type === "income" ? "text-emerald-600" : "text-red-600"
-                }`}
+          {recent.length > 0 ? (
+            recent.map((transaction) => (
+              <div
+                key={transaction.id}
+                className="flex items-center justify-between p-3 bg-[#f5f5f5] hover:bg-[#eeeeee] rounded-lg transition-colors"
               >
-                {activity.amount}
-              </span>
-            </div>
-          ))}
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold ${
+                      transaction.tx_type === "income"
+                        ? "bg-[#e8f5e9] text-[#2e7d32]"
+                        : "bg-[#ffebee] text-[#c62828]"
+                    }`}
+                  >
+                    {transaction.tx_type === "income" ? "+" : "-"}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-[#1f1f1f]">
+                      {transaction.description}
+                    </p>
+                    <p className="text-xs text-[#999999]">
+                      {formatDate(
+                        transaction.transaction_date || transaction.date || "",
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <span className={`text-sm font-bold ${
+                  transaction.tx_type === "income"
+                    ? "text-[#2e7d32]"
+                    : "text-[#c62828]"
+                }`}>
+                  {formatCurrency(transaction.amount, data.currency)}
+                </span>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-[#999999]">
+              Belum ada transaksi pada periode ini.
+            </p>
+          )}
         </div>
       </div>
     </div>

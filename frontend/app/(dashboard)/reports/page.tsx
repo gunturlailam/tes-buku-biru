@@ -8,11 +8,13 @@ import { Alert } from "@/components/ui/Alert";
 import { useQuery } from "@tanstack/react-query";
 import { financialAPI } from "@/lib/api";
 import { getDateRangeForPeriod, type PeriodType } from "@/lib/date-utils";
+import { formatCurrency } from "@/lib/utils";
+import { DataQualityBadge } from "@/components/shared/DataQualityBadge";
+import type { MetricValue } from "@/types/financial";
 import { FileText, TrendingUp } from "lucide-react";
-import type { ProfitLossReport as ProfitLossReportType } from "@/types/financial";
 
 export default function ReportsPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>("MTD");
+  const [selectedPeriod] = useState<PeriodType>("MTD");
   const [activeTab, setActiveTab] = useState<"profit-loss" | "cash-flow">(
     "profit-loss",
   );
@@ -26,6 +28,31 @@ export default function ReportsPage() {
     queryFn: () => financialAPI.getProfitLoss(dateRange),
     enabled: activeTab === "profit-loss",
   });
+
+  const {
+    data: cashFlowData,
+    isLoading: isCashFlowLoading,
+    error: cashFlowError,
+  } = useQuery({
+    queryKey: ["cash-flow", dateRange],
+    queryFn: () => financialAPI.getCashFlow(dateRange),
+    enabled: activeTab === "cash-flow",
+  });
+
+  const renderMetric = (
+    label: string,
+    metric: MetricValue | undefined,
+    currency: string,
+  ) => (
+    <div className="flex items-center justify-between py-2.5 border-b border-[#EBE5DC]/60 last:border-0">
+      <span className="text-sm text-gray-600">{label}</span>
+      <span className="text-sm font-semibold text-gray-900">
+        {metric?.status === "available" && metric.value !== null
+          ? formatCurrency(metric.value, currency)
+          : metric?.reason || "Tidak tersedia"}
+      </span>
+    </div>
+  );
 
   // Loading state
   if (isLoading && activeTab === "profit-loss") {
@@ -101,19 +128,69 @@ export default function ReportsPage() {
       )}
 
       {activeTab === "cash-flow" && (
-        <div className="bg-white rounded-2xl border border-gray-200/60 shadow-premium p-8 text-center hover:border-emerald-200 hover:shadow-md transition-all">
-          <div className="max-w-md mx-auto">
-            <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <TrendingUp className="w-8 h-8 text-white" />
+        <>
+          {isCashFlowLoading && (
+            <div className="flex items-center justify-center min-h-[240px]">
+              <LoadingSpinner size="lg" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Laporan Arus Kas
-            </h3>
-            <p className="text-sm text-gray-600">
-              Fitur ini sedang dalam pengembangan dan akan segera tersedia.
-            </p>
-          </div>
-        </div>
+          )}
+
+          {cashFlowError && (
+            <Alert variant="error">
+              Gagal memuat laporan arus kas. Pastikan backend berjalan dan coba
+              refresh halaman.
+            </Alert>
+          )}
+
+          {cashFlowData && !isCashFlowLoading && !cashFlowError && (
+            <div className="bg-white rounded-2xl border border-gray-200/60 shadow-premium p-6 space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Laporan Arus Kas
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {cashFlowData.period.from} – {cashFlowData.period.to}
+                  </p>
+                </div>
+                <DataQualityBadge status={cashFlowData.data_quality.status} />
+              </div>
+
+              <div>
+                {renderMetric("Kas Masuk", cashFlowData.items.cash_in, cashFlowData.currency)}
+                {renderMetric("Kas Keluar", cashFlowData.items.cash_out, cashFlowData.currency)}
+                {renderMetric(
+                  "Arus Kas Bersih",
+                  cashFlowData.items.net_cash_flow,
+                  cashFlowData.currency,
+                )}
+                {renderMetric(
+                  "Saldo Kas Awal",
+                  cashFlowData.items.opening_cash,
+                  cashFlowData.currency,
+                )}
+                {renderMetric(
+                  "Saldo Kas Akhir",
+                  cashFlowData.items.closing_cash,
+                  cashFlowData.currency,
+                )}
+              </div>
+
+              {cashFlowData.note && (
+                <p className="text-xs text-gray-500">{cashFlowData.note}</p>
+              )}
+
+              {cashFlowData.data_quality.warnings &&
+                cashFlowData.data_quality.warnings.length > 0 && (
+                  <ul className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
+                    {cashFlowData.data_quality.warnings.map((warning, index) => (
+                      <li key={index}>• {warning}</li>
+                    ))}
+                  </ul>
+                )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

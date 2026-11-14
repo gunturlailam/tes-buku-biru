@@ -3,6 +3,14 @@
  */
 
 export type PeriodType = "MTD" | "QTD" | "YTD";
+export type RatioPeriodType = "last_month" | "MTD" | "QTD" | "YTD";
+
+export interface RatioDateRange {
+  from: string;
+  to: string;
+  as_of: string;
+  label: string;
+}
 
 /**
  * Get date range for a given period type
@@ -14,7 +22,6 @@ export function getDateRangeForPeriod(periodType: PeriodType): {
   const today = new Date();
   const year = today.getFullYear();
   const month = today.getMonth(); // 0-indexed
-  const day = today.getDate();
 
   let from: Date;
   const to = today;
@@ -96,5 +103,45 @@ export function getPreviousPeriod(periodType: PeriodType): {
   return {
     from: formatDateForAPI(previousFrom),
     to: formatDateForAPI(previousTo),
+  };
+}
+
+/**
+ * Rentang tanggal untuk halaman rasio.
+ *
+ * `as_of` adalah tanggal snapshot neraca yang dipakai. Untuk bulan lalu,
+ * snapshot diambil pada akhir bulan agar seluruh transaksi bulan itu masuk.
+ */
+export function getDateRangeForRatioPeriod(
+  periodType: RatioPeriodType,
+): RatioDateRange {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+
+  if (periodType === "last_month") {
+    const from = new Date(year, month - 1, 1);
+    const to = new Date(year, month, 0);
+    return {
+      from: formatDateForAPI(from),
+      to: formatDateForAPI(to),
+      as_of: formatDateForAPI(to),
+      label: from.toLocaleDateString("id-ID", {
+        month: "long",
+        year: "numeric",
+      }),
+    };
+  }
+
+  const base = getDateRangeForPeriod(periodType);
+  return {
+    ...base,
+    as_of: formatDateForAPI(today),
+    label:
+      periodType === "MTD"
+        ? "Bulan ini (MTD)"
+        : periodType === "QTD"
+          ? "Kuartal ini (QTD)"
+          : "Tahun ini (YTD)",
   };
 }

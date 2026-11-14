@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-interface TableProps extends React.HTMLAttributes<HTMLTableElement> {}
+type TableProps = React.HTMLAttributes<HTMLTableElement>;
 
 const Table = React.forwardRef<HTMLTableElement, TableProps>(
   ({ className, ...props }, ref) => (
@@ -16,8 +16,7 @@ const Table = React.forwardRef<HTMLTableElement, TableProps>(
 );
 Table.displayName = "Table";
 
-interface TableHeaderProps
-  extends React.HTMLAttributes<HTMLTableSectionElement> {}
+type TableHeaderProps = React.HTMLAttributes<HTMLTableSectionElement>;
 
 const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
@@ -31,8 +30,7 @@ const TableHeader = React.forwardRef<
 ));
 TableHeader.displayName = "TableHeader";
 
-interface TableBodyProps
-  extends React.HTMLAttributes<HTMLTableSectionElement> {}
+type TableBodyProps = React.HTMLAttributes<HTMLTableSectionElement>;
 
 const TableBody = React.forwardRef<HTMLTableSectionElement, TableBodyProps>(
   ({ className, ...props }, ref) => (
@@ -41,8 +39,7 @@ const TableBody = React.forwardRef<HTMLTableSectionElement, TableBodyProps>(
 );
 TableBody.displayName = "TableBody";
 
-interface TableFooterProps
-  extends React.HTMLAttributes<HTMLTableSectionElement> {}
+type TableFooterProps = React.HTMLAttributes<HTMLTableSectionElement>;
 
 const TableFooter = React.forwardRef<
   HTMLTableSectionElement,
@@ -59,7 +56,7 @@ const TableFooter = React.forwardRef<
 ));
 TableFooter.displayName = "TableFooter";
 
-interface TableRowProps extends React.HTMLAttributes<HTMLTableRowElement> {}
+type TableRowProps = React.HTMLAttributes<HTMLTableRowElement>;
 
 const TableRow = React.forwardRef<HTMLTableRowElement, TableRowProps>(
   ({ className, ...props }, ref) => (
@@ -76,8 +73,7 @@ const TableRow = React.forwardRef<HTMLTableRowElement, TableRowProps>(
 );
 TableRow.displayName = "TableRow";
 
-interface TableHeadProps
-  extends React.ThHTMLAttributes<HTMLTableCellElement> {}
+type TableHeadProps = React.ThHTMLAttributes<HTMLTableCellElement>;
 
 const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
   ({ className, ...props }, ref) => (
@@ -94,8 +90,7 @@ const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
 );
 TableHead.displayName = "TableHead";
 
-interface TableCellProps
-  extends React.TdHTMLAttributes<HTMLTableCellElement> {}
+type TableCellProps = React.TdHTMLAttributes<HTMLTableCellElement>;
 
 const TableCell = React.forwardRef<HTMLTableCellElement, TableCellProps>(
   ({ className, ...props }, ref) => (
@@ -111,8 +106,7 @@ const TableCell = React.forwardRef<HTMLTableCellElement, TableCellProps>(
 );
 TableCell.displayName = "TableCell";
 
-interface TableCaptionProps
-  extends React.HTMLAttributes<HTMLTableCaptionElement> {}
+type TableCaptionProps = React.HTMLAttributes<HTMLTableCaptionElement>;
 
 const TableCaption = React.forwardRef<
   HTMLTableCaptionElement,

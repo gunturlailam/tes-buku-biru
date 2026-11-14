@@ -2,17 +2,15 @@
 
 import { useState, useMemo } from "react";
 import { RiskSignalCard } from "@/features/insights/components/RiskSignalCard";
-import { DataQualityBadge } from "@/components/shared/DataQualityBadge";
 import { Button } from "@/components/ui/Button";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Alert } from "@/components/ui/Alert";
 import { useFinancialHealth } from "@/features/insights/hooks/use-financial-health";
 import { getDateRangeForPeriod, type PeriodType } from "@/lib/date-utils";
-import type { FinancialHealth } from "@/types/financial";
 import { Filter } from "lucide-react";
 
 export default function InsightsPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>("MTD");
+  const [selectedPeriod] = useState<PeriodType>("MTD");
   const [filterLevel, setFilterLevel] = useState<
     "all" | "normal" | "attention" | "critical"
   >("all");

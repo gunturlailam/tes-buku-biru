@@ -5,14 +5,14 @@ import { RecommendationCard } from "@/features/recommendations/components/Recomm
 import { Button } from "@/components/ui/Button";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Alert } from "@/components/ui/Alert";
-import { useQuery } from "@tanstack/react-query";
-import { recommendationAPI } from "@/lib/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getErrorMessage, recommendationAPI } from "@/lib/api";
 import { getDateRangeForPeriod, type PeriodType } from "@/lib/date-utils";
 import type { Recommendation } from "@/types/financial";
 import { Filter, Sparkles } from "lucide-react";
 
 export default function RecommendationsPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>("MTD");
+  const [selectedPeriod] = useState<PeriodType>("MTD");
   const [filterPriority, setFilterPriority] = useState<
     "all" | "low" | "medium" | "high"
   >("all");
@@ -23,25 +23,54 @@ export default function RecommendationsPage() {
   // Get date range based on selected period
   const dateRange = useMemo(() => getDateRangeForPeriod(selectedPeriod), [selectedPeriod]);
 
+  const queryClient = useQueryClient();
+  const [feedbackError, setFeedbackError] = useState("");
+
   // Fetch recommendations from API
   const { data: recommendationsData, isLoading, error } = useQuery({
     queryKey: ["recommendations", dateRange],
     queryFn: () => recommendationAPI.getRecommendations(dateRange),
   });
 
-  const [localRecommendations, setLocalRecommendations] = useState<Recommendation[]>([]);
+  // Optimistic UI; status akhir tetap dipersist ke backend.
+  const [reviewedIds, setReviewedIds] = useState<Record<string, boolean>>({});
 
-  // Update local state when API data changes
-  useMemo(() => {
-    if (recommendationsData?.recommendations) {
-      // Ensure each recommendation has period data
-      const enrichedRecs = recommendationsData.recommendations.map((rec: any) => ({
-        ...rec,
-        period: rec.period || { from: dateRange.from, to: dateRange.to },
-      }));
-      setLocalRecommendations(enrichedRecs);
-    }
+  const markMutation = useMutation({
+    mutationFn: ({
+      id,
+      status,
+    }: {
+      id: string;
+      status: "reviewed" | "dismissed";
+    }) => recommendationAPI.updateRecommendation(id, status),
+    onSuccess: () => {
+      setFeedbackError("");
+      queryClient.invalidateQueries({ queryKey: ["recommendations"] });
+    },
+    onError: (mutationError, variables) => {
+      setFeedbackError(getErrorMessage(mutationError));
+      setReviewedIds((prev) => {
+        const next = { ...prev };
+        delete next[variables.id];
+        return next;
+      });
+    },
+  });
+
+  const recommendations = useMemo<Recommendation[]>(() => {
+    return (recommendationsData?.recommendations ?? []).map((rec) => ({
+      ...rec,
+      period: rec.period || { from: dateRange.from, to: dateRange.to },
+    }));
   }, [recommendationsData, dateRange]);
+
+  const localRecommendations = useMemo<Recommendation[]>(() => {
+    return recommendations.map((rec) =>
+      reviewedIds[rec.id]
+        ? { ...rec, status: "reviewed" as const }
+        : rec,
+    );
+  }, [recommendations, reviewedIds]);
 
   // Loading state
   if (isLoading) {
@@ -86,11 +115,8 @@ export default function RecommendationsPage() {
   }
 
   const handleMarkDone = (id: string) => {
-    setLocalRecommendations((prev) =>
-      prev.map((rec) =>
-        rec.id === id ? { ...rec, status: "reviewed" as const } : rec,
-      ),
-    );
+    setReviewedIds((prev) => ({ ...prev, [id]: true }));
+    markMutation.mutate({ id, status: "reviewed" });
   };
 
   let filteredRecommendations = localRecommendations;
@@ -130,6 +156,12 @@ export default function RecommendationsPage() {
           Saran berbasis analisis data keuangan Anda
         </p>
       </div>
+
+      {feedbackError && (
+        <Alert variant="error">
+          Gagal menyimpan status rekomendasi: {feedbackError}
+        </Alert>
+      )}
 
       <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 text-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all">
         <div className="flex items-start gap-4">

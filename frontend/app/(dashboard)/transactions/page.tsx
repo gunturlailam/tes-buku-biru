@@ -13,10 +13,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/Table";
-import { Plus, Search, Receipt, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Receipt, Pencil, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { useTransactions, useDeleteTransaction } from "@/hooks/use-transactions";
+import {
+  useTransactions,
+  useReverseTransaction,
+} from "@/hooks/use-transactions";
+import { useCategories } from "@/hooks/use-categories";
 import { getErrorMessage } from "@/lib/api";
 
 interface Toast {
@@ -24,62 +28,113 @@ interface Toast {
   message: string;
 }
 
+interface CategoryOption {
+  id: number;
+  name: string;
+  tx_type: string;
+}
+
+interface TransactionRow {
+  id: number;
+  transaction_date?: string;
+  date?: string;
+  description: string;
+  amount: string | number;
+  tx_type: string;
+  category_id?: number | null;
+  status?: string;
+  reversal_of_id?: number | null;
+}
+
 const typeOptions = [
   { value: "all", label: "Semua Tipe" },
   { value: "income", label: "Pemasukan" },
   { value: "expense", label: "Pengeluaran" },
+  { value: "transfer", label: "Transfer" },
+  { value: "owner_contribution", label: "Setoran Modal" },
+  { value: "owner_draw", label: "Penarikan Pemilik" },
+  { value: "loan_received", label: "Pinjaman Masuk" },
+  { value: "loan_repayment", label: "Cicilan Pinjaman" },
+  { value: "refund", label: "Refund" },
 ];
 
-const categoryOptions = [
-  { value: "all", label: "Semua Kategori" },
-  { value: "Penjualan", label: "Penjualan" },
-  { value: "Pembelian", label: "Pembelian" },
-  { value: "Operasional", label: "Operasional" },
-  { value: "Gaji", label: "Gaji" },
-];
+const typeLabels: Record<string, string> = {
+  income: "Pemasukan",
+  expense: "Pengeluaran",
+  transfer: "Transfer",
+  owner_contribution: "Setoran Modal",
+  owner_draw: "Penarikan Pemilik",
+  loan_received: "Pinjaman Masuk",
+  loan_repayment: "Cicilan Pinjaman",
+  refund: "Refund",
+};
 
 function TransactionsContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [toast, setToast] = useState<Toast | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [reversingId, setReversingId] = useState<number | null>(null);
 
-  const { data: transactions = [], isLoading, error } = useTransactions();
-  const { mutate: deleteTransaction, isPending: isDeleting } = useDeleteTransaction();
+  const { data: categories = [] } = useCategories();
+  const categoryOptions = [
+    { value: "all", label: "Semua Kategori" },
+    ...(categories as CategoryOption[]).map((category) => ({
+      value: String(category.id),
+      label: category.name,
+    })),
+  ];
+
+  const {
+    data: transactionsData = [],
+    isLoading,
+    error,
+  } = useTransactions({
+    tx_type: typeFilter === "all" ? undefined : typeFilter,
+    category_id:
+      categoryFilter === "all" ? undefined : Number(categoryFilter),
+  });
+  const transactions = transactionsData as TransactionRow[];
+  const { mutate: reverseTransaction, isPending: isReversing } =
+    useReverseTransaction();
 
   const filteredTransactions = useMemo(() => {
-    return transactions.filter((transaction: any) => {
+    return transactions.filter((transaction) => {
       const matchesSearch = (transaction.description || "")
         .toLowerCase()
         .includes(searchQuery.toLowerCase());
       const matchesType =
         typeFilter === "all" || transaction.tx_type === typeFilter;
       const matchesCategory =
-        categoryFilter === "all";
+        categoryFilter === "all" ||
+        String(transaction.category_id ?? "") === categoryFilter;
 
       return matchesSearch && matchesType && matchesCategory;
     });
   }, [transactions, searchQuery, typeFilter, categoryFilter]);
 
-  const handleDelete = (id: number) => {
-    if (window.confirm("Apakah Anda yakin ingin menghapus transaksi ini?")) {
-      setDeletingId(id);
-      deleteTransaction(id, {
+  const handleReverse = (id: number) => {
+    if (
+      window.confirm(
+        "Batalkan transaksi ini? Transaksi tidak dihapus permanen; sistem membuat baris reversal agar jejak audit tetap utuh."
+      )
+    ) {
+      setReversingId(id);
+      reverseTransaction(id, {
         onSuccess: () => {
-          setDeletingId(null);
+          setReversingId(null);
           setToast({
             type: "success",
-            message: "Transaksi berhasil dihapus",
+            message: "Transaksi berhasil dibatalkan (reversal)",
           });
           setTimeout(() => setToast(null), 3000);
         },
         onError: (error) => {
-          setDeletingId(null);
+          setReversingId(null);
           const errorMessage = getErrorMessage(error);
           setToast({
             type: "error",
-            message: errorMessage || "Gagal menghapus transaksi",
+            message: errorMessage || "Gagal membatalkan transaksi",
           });
         },
       });
@@ -184,31 +239,43 @@ function TransactionsContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTransactions.map((transaction: any) => (
+                {filteredTransactions.map((transaction) => (
                   <TableRow key={transaction.id}>
                     <TableCell className="font-medium">
-                      {formatDate(transaction.transaction_date || transaction.date)}
+                      {formatDate(
+                        transaction.transaction_date || transaction.date || "",
+                      )}
                     </TableCell>
                     <TableCell>{transaction.description}</TableCell>
                     <TableCell>
-                      <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          transaction.tx_type === "income"
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : "bg-red-50 text-red-700 border border-red-200"
-                        }`}
-                      >
-                        {transaction.tx_type === "income"
-                          ? "Pemasukan"
-                          : "Pengeluaran"}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            transaction.tx_type === "income"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : transaction.tx_type === "expense"
+                                ? "bg-red-50 text-red-700 border border-red-200"
+                                : "bg-slate-50 text-slate-700 border border-slate-200"
+                          }`}
+                        >
+                          {typeLabels[transaction.tx_type] ||
+                            transaction.tx_type}
+                        </span>
+                        {transaction.status === "reversed" && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                            Dibatalkan
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right font-semibold">
                       <span
                         className={
                           transaction.tx_type === "income"
                             ? "text-emerald-700"
-                            : "text-red-700"
+                            : transaction.tx_type === "expense"
+                              ? "text-red-700"
+                              : "text-slate-700"
                         }
                       >
                         {formatCurrency(transaction.amount)}
@@ -216,19 +283,29 @@ function TransactionsContent() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Link href={`/transactions/${transaction.id}/edit`}>
-                          <Button variant="ghost" size="sm">
-                            <Pencil className="w-3.5 h-3.5" />
-                          </Button>
-                        </Link>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(transaction.id)}
-                          disabled={isDeleting && deletingId === transaction.id}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
+                        {transaction.status !== "reversed" &&
+                          !transaction.reversal_of_id && (
+                            <>
+                              <Link
+                                href={`/transactions/${transaction.id}/edit`}
+                              >
+                                <Button variant="ghost" size="sm">
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                              </Link>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Batalkan (reversal)"
+                                onClick={() => handleReverse(transaction.id)}
+                                disabled={
+                                  isReversing && reversingId === transaction.id
+                                }
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                              </Button>
+                            </>
+                          )}
                       </div>
                     </TableCell>
                   </TableRow>

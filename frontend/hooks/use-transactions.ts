@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { transactionAPI } from "@/lib/api";
+import { transactionAPI, type TransactionPayload } from "@/lib/api";
 import { getDateRangeForPeriod } from "@/lib/date-utils";
 
 interface TransactionFilters {
@@ -8,6 +8,7 @@ interface TransactionFilters {
   limit?: number;
   tx_type?: string;
   category_id?: number;
+  search?: string;
   from_date?: string;
   to_date?: string;
 }
@@ -40,12 +41,9 @@ export function useTransactions(filters?: TransactionFilters) {
       skip: filters?.skip,
       tx_type: filters?.tx_type,
       category_id: filters?.category_id,
+      search: filters?.search,
     };
-  }, [from, to, filters?.limit, filters?.skip, filters?.tx_type, filters?.category_id]);
-
-  if (process.env.NEXT_PUBLIC_APP_ENV === "development") {
-    console.log("[useTransactions] Final params with dates:", finalParams);
-  }
+  }, [from, to, filters?.limit, filters?.skip, filters?.tx_type, filters?.category_id, filters?.search]);
 
   return useQuery({
     queryKey: ["transactions", finalParams],
@@ -81,8 +79,13 @@ export function useUpdateTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) =>
-      transactionAPI.updateTransaction(id, data),
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: Partial<TransactionPayload>;
+    }) => transactionAPI.updateTransaction(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["transaction", variables.id] });
@@ -92,15 +95,16 @@ export function useUpdateTransaction() {
   });
 }
 
-export function useDeleteTransaction() {
+export function useReverseTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: transactionAPI.deleteTransaction,
+    mutationFn: transactionAPI.reverseTransaction,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["financial-summary"] });
       queryClient.invalidateQueries({ queryKey: ["financial-health"] });
+      queryClient.invalidateQueries({ queryKey: ["recommendations"] });
     },
   });
 }

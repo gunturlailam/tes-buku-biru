@@ -5,13 +5,11 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Alert } from "@/components/ui/Alert";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,49 +20,12 @@ export default function ForgotPasswordPage() {
       return;
     }
 
-    setIsLoading(true);
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    setSuccess(true);
-    setIsLoading(false);
-  };
-
-  if (success) {
-    return (
-      <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
-          <div className="bg-white rounded-3xl border border-[#EBE5DC]/70 shadow-[0_8px_30px_-4px_rgba(44,56,37,0.05)] p-8 text-center">
-            <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="w-8 h-8 text-emerald-600" />
-            </div>
-
-            <h2 className="text-2xl font-serif font-semibold text-[#1F241D] mb-3">
-              Email Terkirim!
-            </h2>
-
-            <p className="text-sm text-[#7E8379] mb-6">
-              Kami telah mengirimkan link reset password ke{" "}
-              <span className="font-semibold text-[#1F241D]">{email}</span>.
-              Silakan cek inbox atau folder spam Anda.
-            </p>
-
-            <div className="bg-[#F6EFE9] border border-[#EBE5DC] rounded-xl p-4 mb-6">
-              <p className="text-xs text-[#7E8379]">
-                Link reset password akan kedaluwarsa dalam{" "}
-                <span className="font-semibold text-[#1F241D]">24 jam</span>
-              </p>
-            </div>
-
-            <Link href="/login">
-              <Button className="w-full">Kembali ke Halaman Login</Button>
-            </Link>
-          </div>
-        </div>
-      </div>
+    // Endpoint reset password belum ada di backend. Jangan menampilkan
+    // keberhasilan palsu.
+    setError(
+      "Fitur reset password belum tersedia di MVP ini. Hubungi admin organisasi untuk melakukan reset.",
     );
-  }
+  };
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center p-8">
@@ -128,14 +89,8 @@ export default function ForgotPasswordPage() {
               autoFocus
             />
 
-            <Button
-              type="submit"
-              className="w-full"
-              size="lg"
-              isLoading={isLoading}
-              disabled={isLoading}
-            >
-              {isLoading ? "Mengirim..." : "Kirim Link Reset Password"}
+            <Button type="submit" className="w-full" size="lg">
+              Kirim Link Reset Password
             </Button>
           </form>
 
@@ -143,28 +98,19 @@ export default function ForgotPasswordPage() {
           <div className="mt-6 pt-6 border-t border-[#EBE5DC]">
             <div className="bg-[#F6EFE9] border border-[#EBE5DC] rounded-xl p-4">
               <p className="text-xs font-semibold text-[#1F241D] mb-2">
-                💡 Tips Keamanan
+                Status Fitur
               </p>
-              <ul className="text-xs text-[#7E8379] space-y-1 list-disc list-inside">
-                <li>Jangan bagikan link reset ke siapa pun</li>
-                <li>Link hanya berlaku sekali dan akan kedaluwarsa</li>
-                <li>
-                  Jika Anda tidak meminta reset, abaikan email ini
-                </li>
-              </ul>
+              <p className="text-xs text-[#7E8379]">
+                Reset password mandiri belum tersedia. Untuk sementara, admin
+                organisasi perlu melakukan reset melalui prosedur internal.
+              </p>
             </div>
           </div>
         </div>
 
         {/* Contact Support */}
         <p className="text-center text-xs text-[#7E8379] mt-6">
-          Masih bermasalah?{" "}
-          <Link
-            href="/support"
-            className="text-[#314028] hover:text-[#273420] font-semibold"
-          >
-            Hubungi Support
-          </Link>
+          Masih bermasalah? Hubungi admin organisasi Anda.
         </p>
       </div>
     </div>

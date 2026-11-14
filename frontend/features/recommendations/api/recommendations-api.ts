@@ -3,6 +3,7 @@ import type {
   RecommendationsResponse,
   FinancialQueryParams,
 } from "@/types/api";
+import type { Recommendation } from "@/types/financial";
 
 export const recommendationsApi = {
   getRecommendations: async (
@@ -16,7 +17,7 @@ export const recommendationsApi = {
     });
     
     // Ensure period is added to each recommendation if missing
-    const recommendations = (data.recommendations || []).map((rec: any) => ({
+    const recommendations = (data.recommendations || []).map((rec: Recommendation) => ({
       ...rec,
       period: rec.period || { from: params.from, to: params.to },
     }));

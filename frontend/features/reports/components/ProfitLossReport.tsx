@@ -1,6 +1,5 @@
 "use client";
 
-import { Card } from "@/components/ui/Card";
 import { DataQualityBadge } from "@/components/shared/DataQualityBadge";
 import { formatCurrency, formatPercentage } from "@/lib/utils";
 import type { ProfitLossReport } from "@/types/financial";

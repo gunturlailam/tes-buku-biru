@@ -3,8 +3,6 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import { Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { Navbar } from "@/components/layout/Navbar";
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],

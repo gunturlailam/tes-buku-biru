@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useCreateTransaction } from "@/hooks/use-transactions";
+import { useCategories } from "@/hooks/use-categories";
 import { getErrorMessage } from "@/lib/api";
 
 interface Toast {
@@ -17,49 +18,27 @@ interface Toast {
   message: string;
 }
 
-// Helper function to map category name to ID (hardcoded for now, ideally from backend)
-const getCategoryIdByName = (categoryName: string): number => {
-  const categoryMap: Record<string, number> = {
-    "Penjualan": 1,
-    "Pembelian": 2,
-    "Operasional": 3,
-    "Gaji": 4,
-    "Marketing": 5,
-    "Transportasi": 6,
-    "Utilitas": 7,
-    "Lainnya": 8,
-  };
-  return categoryMap[categoryName] || 1;
-};
+interface CategoryOption {
+  id: number;
+  name: string;
+  tx_type: string;
+}
 
 const typeOptions = [
   { value: "income", label: "Pemasukan" },
   { value: "expense", label: "Pengeluaran" },
   { value: "transfer", label: "Transfer" },
-];
-
-const categoryOptions = [
-  { value: "Penjualan", label: "Penjualan" },
-  { value: "Pembelian", label: "Pembelian" },
-  { value: "Operasional", label: "Operasional" },
-  { value: "Gaji", label: "Gaji & Tunjangan" },
-  { value: "Marketing", label: "Marketing & Iklan" },
-  { value: "Transportasi", label: "Transportasi" },
-  { value: "Utilitas", label: "Utilitas (Listrik, Air, dll)" },
-  { value: "Lainnya", label: "Lainnya" },
-];
-
-const accountOptions = [
-  { value: "cash", label: "Kas" },
-  { value: "bank_bca", label: "Bank BCA" },
-  { value: "bank_mandiri", label: "Bank Mandiri" },
-  { value: "ewallet_gopay", label: "GoPay" },
-  { value: "ewallet_ovo", label: "OVO" },
+  { value: "owner_contribution", label: "Setoran Modal" },
+  { value: "owner_draw", label: "Penarikan Pemilik" },
+  { value: "loan_received", label: "Pinjaman Masuk" },
+  { value: "loan_repayment", label: "Cicilan Pinjaman" },
+  { value: "refund", label: "Refund" },
 ];
 
 export default function NewTransactionPage() {
   const router = useRouter();
   const { mutate: createTransaction, isPending: isCreating } = useCreateTransaction();
+  const { data: categories = [], isLoading: isCategoriesLoading } = useCategories();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [toast, setToast] = useState<Toast | null>(null);
 
@@ -68,10 +47,13 @@ export default function NewTransactionPage() {
     description: "",
     amount: "",
     type: "income",
-    category: "",
-    account: "cash",
+    categoryId: "",
     notes: "",
   });
+
+  const categoryOptions = (categories as CategoryOption[])
+    .filter((category) => category.tx_type === formData.type)
+    .map((category) => ({ value: String(category.id), label: category.name }));
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -79,7 +61,13 @@ export default function NewTransactionPage() {
     >
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+      // Kategori terikat ke tipe transaksi. Reset agar tidak mengirim
+      // kategori yang tidak cocok (backend akan menolak dengan 422).
+      ...(name === "type" ? { categoryId: "" } : {}),
+    }));
     // Clear error when user types
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
@@ -105,8 +93,8 @@ export default function NewTransactionPage() {
       newErrors.type = "Tipe transaksi wajib dipilih";
     }
 
-    if (!formData.category) {
-      newErrors.category = "Kategori wajib dipilih";
+    if (!formData.categoryId) {
+      newErrors.categoryId = "Kategori wajib dipilih";
     }
 
     setErrors(newErrors);
@@ -120,14 +108,17 @@ export default function NewTransactionPage() {
       return;
     }
 
-    // Prepare payload for API (transform field names)
+    const description = formData.notes.trim()
+      ? `${formData.description.trim()} — ${formData.notes.trim()}`
+      : formData.description.trim();
+
+    // Kontrak backend: transaction_date, tx_type, amount, category_id.
     const payload = {
       tx_type: formData.type,
       amount: formData.amount,
-      tx_date: formData.date,
-      category_id: getCategoryIdByName(formData.category),
-      description: formData.description || "",
-      counterparty: formData.notes || "",
+      transaction_date: formData.date,
+      category_id: Number(formData.categoryId),
+      description,
     };
 
     createTransaction(payload, {
@@ -248,24 +239,23 @@ export default function NewTransactionPage() {
               {/* Category */}
               <Select
                 label="Kategori"
-                name="category"
-                options={categoryOptions}
-                value={formData.category}
+                name="categoryId"
+                options={
+                  categoryOptions.length > 0
+                    ? categoryOptions
+                    : [{ value: "", label: "Belum ada kategori untuk tipe ini" }]
+                }
+                value={formData.categoryId}
                 onChange={handleChange}
-                error={errors.category}
+                error={errors.categoryId}
+                helperText={
+                  isCategoriesLoading
+                    ? "Memuat kategori..."
+                    : "Kategori mengikuti tipe transaksi"
+                }
                 required
               />
             </div>
-
-            {/* Account */}
-            <Select
-              label="Akun/Metode Pembayaran"
-              name="account"
-              options={accountOptions}
-              value={formData.account}
-              onChange={handleChange}
-              helperText="Pilih dari mana/kemana uang masuk/keluar"
-            />
 
             {/* Notes */}
             <Textarea

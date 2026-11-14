@@ -31,13 +31,57 @@ export const authAPI = {
   },
 };
 
+// Organization API
+export interface OrganizationPayload {
+  name: string;
+  industry?: string | null;
+  currency?: string;
+  timezone?: string;
+  accounting_basis?: string;
+}
+
+export interface OrganizationResponse {
+  id: number;
+  name: string;
+  industry: string | null;
+  currency: string;
+  timezone: string;
+  accounting_basis: string;
+}
+
+export const organizationAPI = {
+  getOrganization: async (id: number): Promise<OrganizationResponse> => {
+    const { data } = await apiClient.get(`/organizations/${id}`);
+    return data;
+  },
+
+  updateOrganization: async (
+    id: number,
+    payload: Partial<OrganizationPayload>,
+  ): Promise<OrganizationResponse> => {
+    const { data } = await apiClient.patch(`/organizations/${id}`, payload);
+    return data;
+  },
+};
+
 // Transaction API
+// Kontrak ini HARUS sama dengan backend/app/schemas.py:TransactionIn.
+export interface TransactionPayload {
+  transaction_date: string; // YYYY-MM-DD
+  description: string;
+  amount: string;
+  tx_type: string;
+  category_id?: number | null;
+  account_id?: number | null;
+}
+
 export const transactionAPI = {
   getTransactions: async (params?: {
     skip?: number;
     limit?: number;
     tx_type?: string;
     category_id?: number;
+    search?: string;
     from_date?: string;
     to_date?: string;
   }) => {
@@ -53,23 +97,13 @@ export const transactionAPI = {
       to: to_date,      // Must be YYYY-MM-DD format
       ...(params?.tx_type && { tx_type: params.tx_type }),
       ...(params?.category_id && { category_id: params.category_id }),
+      ...(params?.search && { search: params.search }),
     };
 
-    // Debug log
-    if (process.env.NEXT_PUBLIC_APP_ENV === "development") {
-      console.log("[transactionAPI.getTransactions] Query params:", queryParams);
-    }
-
-    // Validate that from and to are present
     if (!from_date || !to_date) {
-      console.error("[transactionAPI.getTransactions] Missing required date parameters", {
-        from_date,
-        to_date,
-        originalParams: params,
-      });
       throw new Error("Date parameters are required (from_date and to_date)");
     }
-    
+
     const { data } = await apiClient.get("/transactions", { params: queryParams });
     return data.items || [];
   },
@@ -79,40 +113,24 @@ export const transactionAPI = {
     return data;
   },
 
-  createTransaction: async (transactionData: {
-    tx_type: string;
-    amount: string;
-    tx_date: string;
-    category_id: number;
-    description?: string;
-    counterparty?: string;
-  }) => {
+  createTransaction: async (transactionData: TransactionPayload) => {
     const { data } = await apiClient.post("/transactions", transactionData);
     return data;
   },
 
   updateTransaction: async (
     id: number,
-    transactionData: {
-      tx_type?: string;
-      amount?: string;
-      tx_date?: string;
-      category_id?: number;
-      description?: string;
-      counterparty?: string;
-    }
+    transactionData: Partial<TransactionPayload>,
   ) => {
-    const { data } = await apiClient.put(`/transactions/${id}`, transactionData);
+    // Backend hanya menyediakan PATCH, bukan PUT.
+    const { data } = await apiClient.patch(`/transactions/${id}`, transactionData);
     return data;
   },
 
-  deleteTransaction: async (id: number) => {
-    const { data } = await apiClient.delete(`/transactions/${id}`);
-    return data;
-  },
-
-  reverseTransaction: async (id: number, reason: string) => {
-    const { data } = await apiClient.post(`/transactions/${id}/reverse`, { reason });
+  // Transaksi finansial tidak dihapus permanen. Koreksi dilakukan dengan reversal
+  // agar audit trail tetap utuh.
+  reverseTransaction: async (id: number) => {
+    const { data } = await apiClient.post(`/transactions/${id}/reverse`);
     return data;
   },
 };
@@ -148,6 +166,16 @@ export const financialAPI = {
 export const recommendationAPI = {
   getRecommendations: async (params: FinancialQueryParams) => {
     return recommendationsApi.getRecommendations(params);
+  },
+
+  updateRecommendation: async (
+    id: string,
+    status: "active" | "reviewed" | "dismissed",
+  ) => {
+    const { data } = await apiClient.patch(`/recommendations/${id}`, {
+      status,
+    });
+    return data;
   },
 };
 

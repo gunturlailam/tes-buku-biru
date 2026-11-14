@@ -1,9 +1,8 @@
 "use client";
 
-import { Card } from "@/components/ui/Card";
 import { RiskLevelBadge } from "@/components/shared/RiskLevelBadge";
 import type { RiskSignal } from "@/types/financial";
-import { AlertCircle, AlertTriangle, CheckCircle, TrendingDown, TrendingUp } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle, TrendingUp } from "lucide-react";
 
 interface RiskSignalCardProps {
   signal: RiskSignal;

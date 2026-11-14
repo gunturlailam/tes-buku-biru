@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { Textarea } from "@/components/ui/Textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useTransaction, useUpdateTransaction } from "@/hooks/use-transactions";
+import { useCategories } from "@/hooks/use-categories";
 import { getErrorMessage } from "@/lib/api";
 
 interface Toast {
@@ -18,96 +18,59 @@ interface Toast {
   message: string;
 }
 
-// Helper function to map category name to ID
-const getCategoryIdByName = (categoryName: string): number => {
-  const categoryMap: Record<string, number> = {
-    "Penjualan": 1,
-    "Pembelian": 2,
-    "Operasional": 3,
-    "Gaji": 4,
-    "Marketing": 5,
-    "Transportasi": 6,
-    "Utilitas": 7,
-    "Lainnya": 8,
-  };
-  return categoryMap[categoryName] || 1;
-};
+interface CategoryOption {
+  id: number;
+  name: string;
+  tx_type: string;
+}
 
-// Helper function to map category ID back to name
-const getCategoryNameById = (categoryId: number): string => {
-  const idToNameMap: Record<number, string> = {
-    1: "Penjualan",
-    2: "Pembelian",
-    3: "Operasional",
-    4: "Gaji",
-    5: "Marketing",
-    6: "Transportasi",
-    7: "Utilitas",
-    8: "Lainnya",
-  };
-  return idToNameMap[categoryId] || "";
-};
+interface TransactionRecord {
+  id: number;
+  transaction_date: string;
+  description: string;
+  amount: string | number;
+  tx_type: string;
+  category_id: number | null;
+}
 
 const typeOptions = [
   { value: "income", label: "Pemasukan" },
   { value: "expense", label: "Pengeluaran" },
   { value: "transfer", label: "Transfer" },
+  { value: "owner_contribution", label: "Setoran Modal" },
+  { value: "owner_draw", label: "Penarikan Pemilik" },
+  { value: "loan_received", label: "Pinjaman Masuk" },
+  { value: "loan_repayment", label: "Cicilan Pinjaman" },
+  { value: "refund", label: "Refund" },
 ];
 
-const categoryOptions = [
-  { value: "Penjualan", label: "Penjualan" },
-  { value: "Pembelian", label: "Pembelian" },
-  { value: "Operasional", label: "Operasional" },
-  { value: "Gaji", label: "Gaji & Tunjangan" },
-  { value: "Marketing", label: "Marketing & Iklan" },
-  { value: "Transportasi", label: "Transportasi" },
-  { value: "Utilitas", label: "Utilitas (Listrik, Air, dll)" },
-  { value: "Lainnya", label: "Lainnya" },
-];
-
-const accountOptions = [
-  { value: "cash", label: "Kas" },
-  { value: "bank_bca", label: "Bank BCA" },
-  { value: "bank_mandiri", label: "Bank Mandiri" },
-  { value: "ewallet_gopay", label: "GoPay" },
-  { value: "ewallet_ovo", label: "OVO" },
-];
-
-export default function EditTransactionPage() {
+function EditTransactionForm({
+  transaction,
+}: {
+  transaction: TransactionRecord;
+}) {
   const router = useRouter();
-  const params = useParams();
-  const transactionId = parseInt(params.id as string, 10);
-
-  const { data: existingTx, isLoading: isFetching } = useTransaction(transactionId);
-  const { mutate: updateTransaction, isPending: isUpdating } = useUpdateTransaction();
+  const { mutate: updateTransaction, isPending: isUpdating } =
+    useUpdateTransaction();
+  const { data: categories = [], isLoading: isCategoriesLoading } =
+    useCategories();
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [toast, setToast] = useState<Toast | null>(null);
 
+  // State diinisialisasi dari data server. Form di-remount lewat `key` ketika
+  // transaksi berubah, sehingga tidak perlu setState di dalam useEffect.
   const [formData, setFormData] = useState({
-    date: "",
-    description: "",
-    amount: "",
-    type: "income",
-    category: "",
-    account: "cash",
-    notes: "",
+    date: transaction.transaction_date || "",
+    description: transaction.description || "",
+    amount: String(transaction.amount ?? ""),
+    type: transaction.tx_type || "income",
+    categoryId: transaction.category_id ? String(transaction.category_id) : "",
   });
 
-  // Load existing transaction data into form
-  useEffect(() => {
-    if (existingTx) {
-      setFormData({
-        date: existingTx.tx_date || existingTx.transaction_date || "",
-        description: existingTx.description || "",
-        amount: String(existingTx.amount || ""),
-        type: existingTx.tx_type || "income",
-        category: getCategoryNameById(existingTx.category_id) || "",
-        account: existingTx.account || "cash",
-        notes: existingTx.counterparty || existingTx.notes || "",
-      });
-    }
-  }, [existingTx]);
+  const categoryOptions = (categories as CategoryOption[])
+    .filter((category) => category.tx_type === formData.type)
+    .map((category) => ({ value: String(category.id), label: category.name }));
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -115,7 +78,11 @@ export default function EditTransactionPage() {
     >
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+      ...(name === "type" ? { categoryId: "" } : {}),
+    }));
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
     }
@@ -124,25 +91,13 @@ export default function EditTransactionPage() {
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.date) {
-      newErrors.date = "Tanggal wajib diisi";
-    }
-
-    if (!formData.description.trim()) {
+    if (!formData.date) newErrors.date = "Tanggal wajib diisi";
+    if (!formData.description.trim())
       newErrors.description = "Deskripsi wajib diisi";
-    }
-
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+    if (!formData.amount || parseFloat(formData.amount) <= 0)
       newErrors.amount = "Nominal harus lebih dari 0";
-    }
-
-    if (!formData.type) {
-      newErrors.type = "Tipe transaksi wajib dipilih";
-    }
-
-    if (!formData.category) {
-      newErrors.category = "Kategori wajib dipilih";
-    }
+    if (!formData.type) newErrors.type = "Tipe transaksi wajib dipilih";
+    if (!formData.categoryId) newErrors.categoryId = "Kategori wajib dipilih";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -151,22 +106,18 @@ export default function EditTransactionPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validate()) {
-      return;
-    }
+    if (!validate()) return;
 
-    // Prepare payload for API
     const payload = {
       tx_type: formData.type,
       amount: formData.amount,
-      tx_date: formData.date,
-      category_id: getCategoryIdByName(formData.category),
-      description: formData.description || "",
-      counterparty: formData.notes || "",
+      transaction_date: formData.date,
+      category_id: Number(formData.categoryId),
+      description: formData.description.trim(),
     };
 
     updateTransaction(
-      { id: transactionId, data: payload },
+      { id: transaction.id, data: payload },
       {
         onSuccess: () => {
           setToast({
@@ -186,14 +137,6 @@ export default function EditTransactionPage() {
       }
     );
   };
-
-  if (isFetching) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -285,34 +228,35 @@ export default function EditTransactionPage() {
 
               <Select
                 label="Kategori"
-                name="category"
-                options={categoryOptions}
-                value={formData.category}
+                name="categoryId"
+                options={
+                  categoryOptions.length > 0
+                    ? categoryOptions
+                    : [
+                        {
+                          value: "",
+                          label: "Belum ada kategori untuk tipe ini",
+                        },
+                      ]
+                }
+                value={formData.categoryId}
                 onChange={handleChange}
-                error={errors.category}
+                error={errors.categoryId}
+                helperText={
+                  isCategoriesLoading
+                    ? "Memuat kategori..."
+                    : "Kategori mengikuti tipe transaksi"
+                }
                 required
               />
             </div>
 
-            <Select
-              label="Akun/Metode Pembayaran"
-              name="account"
-              options={accountOptions}
-              value={formData.account}
-              onChange={handleChange}
-            />
-
-            <Textarea
-              label="Catatan (Opsional)"
-              name="notes"
-              placeholder="Tambahkan catatan atau keterangan tambahan..."
-              rows={4}
-              value={formData.notes}
-              onChange={handleChange}
-            />
-
             <div className="flex items-center gap-3 pt-4 border-t border-[#EBE5DC]">
-              <Button type="submit" isLoading={isUpdating} disabled={isUpdating}>
+              <Button
+                type="submit"
+                isLoading={isUpdating}
+                disabled={isUpdating}
+              >
                 {isUpdating ? "Menyimpan..." : "Simpan Perubahan"}
               </Button>
               <Link href="/transactions">
@@ -325,5 +269,47 @@ export default function EditTransactionPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function EditTransactionPage() {
+  const params = useParams();
+  const transactionId = parseInt(params.id as string, 10);
+  const {
+    data: existingTx,
+    isLoading,
+    error,
+  } = useTransaction(transactionId);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (error || !existingTx) {
+    return (
+      <div className="max-w-3xl space-y-4">
+        <Link
+          href="/transactions"
+          className="inline-flex items-center gap-2 text-sm text-[#7E8379] hover:text-[#1F241D] transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Kembali ke Transaksi
+        </Link>
+        <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800">
+          Transaksi tidak ditemukan atau gagal dimuat.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <EditTransactionForm
+      key={existingTx.id}
+      transaction={existingTx as TransactionRecord}
+    />
   );
 }

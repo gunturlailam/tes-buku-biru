@@ -1,8 +1,8 @@
 "use client";
 
-import { cn, formatCurrency, formatNumber } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
-import type { MetricValue, Period, Currency } from "@/types/financial";
+import type { MetricValue, Currency } from "@/types/financial";
 
 interface KPICardProps {
   title: string;
@@ -35,11 +35,6 @@ export function KPICard({
 
   const isPositiveTrend = trend && trend.value > 0;
   const isNeutralTrend = trend && trend.value === 0;
-  const trendColor = isNeutralTrend
-    ? "text-gray-600"
-    : isPositiveTrend
-    ? "text-emerald-700"
-    : "text-red-600";
 
   return (
     <div className="group bg-white rounded-2xl p-6 border border-gray-200/60 hover:border-emerald-200 hover:shadow-premium transition-all duration-300 relative overflow-hidden">

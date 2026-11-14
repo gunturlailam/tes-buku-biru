@@ -1,7 +1,5 @@
 "use client";
 
-import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import type { Recommendation } from "@/types/financial";
 import { Lightbulb, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";

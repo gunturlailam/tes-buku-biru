@@ -10,7 +10,7 @@ jest.mock('@/lib/api', () => ({
     getTransactions: jest.fn(),
     createTransaction: jest.fn(),
     updateTransaction: jest.fn(),
-    deleteTransaction: jest.fn(),
+    reverseTransaction: jest.fn(),
   },
 }))
 
@@ -29,8 +29,15 @@ const createWrapper = () => {
       mutations: { retry: false },
     },
   })
-  return ({ children }: { children: React.ReactNode }) =>
-    React.createElement(QueryClientProvider, { client: queryClient }, children)
+  function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      children,
+    )
+  }
+
+  return Wrapper
 }
 
 describe('useTransactions Hook', () => {
@@ -59,7 +66,7 @@ describe('useTransactions Hook', () => {
   })
 
   it('passes correct parameters to API', async () => {
-    const mockData: any[] = []
+    const mockData: unknown[] = []
     ;(api.transactionAPI.getTransactions as jest.Mock).mockResolvedValueOnce(mockData)
 
     renderHook(() => useTransactions(), {
