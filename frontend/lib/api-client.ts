@@ -14,8 +14,18 @@ export const apiClient: AxiosInstance = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
+    // Add token to request header if available
+    if (typeof window !== "undefined") {
+      const token = localStorage.getItem("auth_token");
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
+
     if (process.env.NEXT_PUBLIC_APP_ENV === "development") {
-      console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
+      console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`, {
+        hasToken: !!config.headers.Authorization,
+      });
     }
     return config;
   },

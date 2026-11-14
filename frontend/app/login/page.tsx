@@ -40,17 +40,55 @@ export default function LoginPage() {
 
     setIsLoading(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      // Call real backend API
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1"}/auth/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+          }),
+        }
+      );
 
-    // Mock authentication
-    if (
-      formData.email === "demo@profitai.local" &&
-      formData.password === "Demo12345!"
-    ) {
-      router.push("/dashboard");
-    } else {
-      setError("Email atau password salah. Gunakan demo@profitai.local / Demo12345!");
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(
+          data.error?.message || "Email atau password salah"
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      // Save token to localStorage
+      if (data.access_token) {
+        localStorage.setItem("auth_token", data.access_token);
+        localStorage.setItem("token_type", data.token_type || "bearer");
+        
+        // Optional: Save remember preference
+        if (formData.remember) {
+          localStorage.setItem("remember_email", formData.email);
+        }
+
+        // Redirect to dashboard
+        router.push("/dashboard");
+      } else {
+        setError("Token tidak diterima dari server");
+        setIsLoading(false);
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gagal terhubung ke server. Pastikan backend berjalan."
+      );
       setIsLoading(false);
     }
   };
