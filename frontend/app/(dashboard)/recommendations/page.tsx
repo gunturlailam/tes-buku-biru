@@ -1,134 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { RecommendationCard } from "@/features/recommendations/components/RecommendationCard";
 import { Button } from "@/components/ui/Button";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { Alert } from "@/components/ui/Alert";
+import { useQuery } from "@tanstack/react-query";
+import { recommendationAPI } from "@/lib/api";
+import { getDateRangeForPeriod, type PeriodType } from "@/lib/date-utils";
 import type { Recommendation } from "@/types/financial";
 import { Filter, Sparkles } from "lucide-react";
 
-const mockRecommendations: Recommendation[] = [
-  {
-    id: "rec-1",
-    rule_id: "receivable_days_high",
-    rule_version: "1.0.0",
-    title: "Tinjau Piutang Usaha",
-    priority: "high",
-    trigger_metrics: {
-      receivable_days: 45,
-      historical_median: 30,
-    },
-    period: {
-      from: "2026-10-01",
-      to: "2026-10-31",
-    },
-    evidence: [
-      "Receivable days saat ini: 45 hari",
-      "Median historis: 30 hari",
-      "1.5× dari baseline normal",
-    ],
-    suggested_actions: [
-      "Review aging receivables report untuk identifikasi pelanggan dengan tunggakan >30 hari",
-      "Follow up aktif ke pelanggan dengan outstanding invoice terlama",
-      "Pertimbangkan penyesuaian payment term untuk pelanggan baru",
-      "Evaluasi pemberian diskon early payment untuk mempercepat collection",
-    ],
-    assumptions: [
-      "Semua transaksi penjualan kredit sudah dicatat",
-      "Pola historis representatif untuk kondisi normal",
-    ],
-    limitations: [
-      "Rekomendasi berdasarkan 3 bulan data historis",
-      "Faktor spesifik per pelanggan belum dipertimbangkan",
-      "Kondisi industri dan seasonal pattern tidak termasuk dalam analisis",
-    ],
-    confidence_label: "Medium confidence",
-    status: "active",
-    created_at: new Date().toISOString(),
-    llm_explanation:
-      "Piutang usaha Anda saat ini rata-rata tertagih dalam 45 hari, lebih lama 50% dari rata-rata historis 30 hari. Hal ini dapat mengganggu arus kas operasional. Disarankan untuk melakukan review mendalam terhadap proses collection dan mempertimbangkan incentive untuk pembayaran lebih cepat.",
-  },
-  {
-    id: "rec-2",
-    rule_id: "margin_decline",
-    rule_version: "1.0.0",
-    title: "Evaluasi Struktur Biaya Operasional",
-    priority: "medium",
-    trigger_metrics: {
-      net_margin_current: 52.8,
-      net_margin_previous: 56.0,
-      decline_pct: -3.2,
-    },
-    period: {
-      from: "2026-10-01",
-      to: "2026-10-31",
-    },
-    evidence: [
-      "Net margin turun dari 56% ke 52.8%",
-      "Penurunan 3.2 poin persentase",
-      "Operating expenses meningkat 8% vs periode lalu",
-    ],
-    suggested_actions: [
-      "Analisis breakdown operating expenses untuk identifikasi cost driver terbesar",
-      "Review efisiensi proses operasional dan identifikasi area pemborosan",
-      "Evaluasi pricing strategy produk/jasa untuk maintain margin",
-      "Pertimbangkan renegotiasi kontrak dengan supplier untuk cost reduction",
-    ],
-    assumptions: [
-      "Volume penjualan relatif stabil",
-      "Tidak ada perubahan signifikan mix produk/jasa",
-    ],
-    limitations: [
-      "Analisis belum mempertimbangkan seasonality",
-      "Cost allocation antar kategori mungkin perlu refinement",
-    ],
-    confidence_label: "High confidence",
-    status: "active",
-    created_at: new Date().toISOString(),
-    llm_explanation:
-      "Margin laba bersih Anda mengalami penurunan 3.2 poin persentase. Meskipun masih di level yang sehat (52.8%), tren penurunan ini perlu diperhatikan. Peningkatan operating expenses menjadi faktor utama. Review mendalam terhadap struktur biaya dapat membantu mempertahankan profitabilitas.",
-  },
-  {
-    id: "rec-3",
-    rule_id: "cash_positive_maintain",
-    rule_version: "1.0.0",
-    title: "Pertahankan Momentum Arus Kas Positif",
-    priority: "low",
-    trigger_metrics: {
-      net_cash_flow: 9500000,
-      cash_flow_trend: "positive",
-    },
-    period: {
-      from: "2026-10-01",
-      to: "2026-10-31",
-    },
-    evidence: [
-      "Net cash flow positif Rp 9.500.000",
-      "3 bulan berturut-turut cash flow positif",
-      "Cash runway 25 hari, masih di atas minimum",
-    ],
-    suggested_actions: [
-      "Maintain disciplined cash management practices yang sudah berjalan",
-      "Pertimbangkan alokasi surplus untuk emergency fund hingga 3 bulan operating expenses",
-      "Evaluasi opportunity untuk reinvestasi dalam pertumbuhan bisnis",
-    ],
-    assumptions: [
-      "Pola cash flow akan relatif stabil",
-      "Tidak ada planned major capex dalam waktu dekat",
-    ],
-    limitations: [
-      "Recommendation bersifat general guidance",
-      "Specific investment opportunity belum dievaluasi",
-    ],
-    confidence_label: "High confidence",
-    status: "active",
-    created_at: new Date().toISOString(),
-    llm_explanation:
-      "Kondisi arus kas Anda saat ini sehat dengan net cash flow positif. Ini adalah pencapaian yang baik. Fokus saat ini adalah mempertahankan momentum ini dan membangun buffer untuk mengantisipasi volatilitas di masa depan.",
-  },
-];
-
 export default function RecommendationsPage() {
-  const [recommendations, setRecommendations] = useState(mockRecommendations);
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>("MTD");
   const [filterPriority, setFilterPriority] = useState<
     "all" | "low" | "medium" | "high"
   >("all");
@@ -136,15 +20,75 @@ export default function RecommendationsPage() {
     "all" | "active" | "reviewed"
   >("all");
 
+  // Get date range based on selected period
+  const dateRange = useMemo(() => getDateRangeForPeriod(selectedPeriod), [selectedPeriod]);
+
+  // Fetch recommendations from API
+  const { data: recommendationsData, isLoading, error } = useQuery({
+    queryKey: ["recommendations", dateRange],
+    queryFn: () => recommendationAPI.getRecommendations(dateRange),
+  });
+
+  const [localRecommendations, setLocalRecommendations] = useState<Recommendation[]>([]);
+
+  // Update local state when API data changes
+  useMemo(() => {
+    if (recommendationsData?.recommendations) {
+      setLocalRecommendations(recommendationsData.recommendations);
+    }
+  }, [recommendationsData]);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <LoadingSpinner size="lg" />
+          <p className="mt-4 text-sm text-gray-600">Memuat rekomendasi AI...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="error">
+          Gagal memuat rekomendasi. Pastikan backend berjalan dan coba refresh halaman.
+        </Alert>
+      </div>
+    );
+  }
+
+  // No data state
+  if (!recommendationsData || localRecommendations.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Rekomendasi AI
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Saran berbasis analisis data keuangan Anda
+          </p>
+        </div>
+        <Alert variant="warning">
+          Tidak ada rekomendasi untuk periode ini. Sistem memerlukan lebih banyak data untuk menghasilkan rekomendasi.
+        </Alert>
+      </div>
+    );
+  }
+
   const handleMarkDone = (id: string) => {
-    setRecommendations((prev) =>
+    setLocalRecommendations((prev) =>
       prev.map((rec) =>
         rec.id === id ? { ...rec, status: "reviewed" as const } : rec,
       ),
     );
   };
 
-  let filteredRecommendations = recommendations;
+  let filteredRecommendations = localRecommendations;
 
   if (filterPriority !== "all") {
     filteredRecommendations = filteredRecommendations.filter(
@@ -158,16 +102,16 @@ export default function RecommendationsPage() {
     );
   }
 
-  const highPriorityCount = recommendations.filter(
+  const highPriorityCount = localRecommendations.filter(
     (r) => r.priority === "high",
   ).length;
-  const mediumPriorityCount = recommendations.filter(
+  const mediumPriorityCount = localRecommendations.filter(
     (r) => r.priority === "medium",
   ).length;
-  const lowPriorityCount = recommendations.filter(
+  const lowPriorityCount = localRecommendations.filter(
     (r) => r.priority === "low",
   ).length;
-  const activeCount = recommendations.filter(
+  const activeCount = localRecommendations.filter(
     (r) => r.status === "active",
   ).length;
 

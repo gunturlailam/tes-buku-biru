@@ -1,97 +1,74 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { RiskSignalCard } from "@/features/insights/components/RiskSignalCard";
 import { DataQualityBadge } from "@/components/shared/DataQualityBadge";
 import { Button } from "@/components/ui/Button";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { Alert } from "@/components/ui/Alert";
+import { useFinancialHealth } from "@/features/insights/hooks/use-financial-health";
+import { getDateRangeForPeriod, type PeriodType } from "@/lib/date-utils";
 import type { FinancialHealth } from "@/types/financial";
 import { Filter } from "lucide-react";
 
-const mockHealthData: FinancialHealth = {
-  period: {
-    from: "2026-10-01",
-    to: "2026-10-31",
-  },
-  generated_at: new Date().toISOString(),
-  overall_status: "attention",
-  signals: [
-    {
-      id: "signal-1",
-      title: "Kas Runway Rendah",
-      level: "attention",
-      trigger_metric: "cash_runway_days",
-      current_value: 25,
-      threshold: 30,
-      period: {
-        from: "2026-10-01",
-        to: "2026-10-31",
-      },
-      explanation:
-        "Dengan arus kas saat ini, dana operasional cukup untuk 25 hari. Ambang batas perhatian adalah 30 hari. Pertimbangkan untuk meninjau pengeluaran dan memprioritaskan cash inflow.",
-      recommendation:
-        "Tinjau pengeluaran dan prioritaskan peningkatan cash inflow",
-    },
-    {
-      id: "signal-2",
-      title: "Margin Laba Menurun",
-      level: "attention",
-      trigger_metric: "net_margin_change",
-      current_value: -3.2,
-      threshold: -5,
-      period: {
-        from: "2026-10-01",
-        to: "2026-10-31",
-      },
-      explanation:
-        "Net margin turun 3.2 poin persentase dibanding periode sebelumnya. Penurunan ini mendekati ambang batas yang memerlukan perhatian khusus.",
-      recommendation: "Review struktur biaya dan strategi pricing produk/jasa",
-    },
-    {
-      id: "signal-3",
-      title: "Arus Kas Positif",
-      level: "normal",
-      trigger_metric: "net_cash_flow",
-      current_value: 9500000,
-      period: {
-        from: "2026-10-01",
-        to: "2026-10-31",
-      },
-      explanation:
-        "Arus kas bersih positif sebesar Rp 9.500.000 pada periode ini. Kondisi arus kas sehat dan mendukung operasional berkelanjutan.",
-    },
-    {
-      id: "signal-4",
-      title: "Pendapatan Stabil",
-      level: "normal",
-      trigger_metric: "revenue_trend",
-      current_value: 2.3,
-      period: {
-        from: "2026-10-01",
-        to: "2026-10-31",
-      },
-      explanation:
-        "Pendapatan tumbuh 2.3% dibanding periode sebelumnya. Pertumbuhan stabil menunjukkan konsistensi penjualan.",
-    },
-  ],
-};
-
 export default function InsightsPage() {
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>("MTD");
   const [filterLevel, setFilterLevel] = useState<
     "all" | "normal" | "attention" | "critical"
   >("all");
 
+  // Get date range based on selected period
+  const dateRange = useMemo(() => getDateRangeForPeriod(selectedPeriod), [selectedPeriod]);
+
+  // Fetch financial health from API
+  const { data: healthData, isLoading, error } = useFinancialHealth(dateRange);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <LoadingSpinner size="lg" />
+          <p className="mt-4 text-sm text-gray-600">Memuat data kesehatan finansial...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="error">
+          Gagal memuat data insights. Pastikan backend berjalan dan coba refresh halaman.
+        </Alert>
+      </div>
+    );
+  }
+
+  // No data state
+  if (!healthData) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="warning">
+          Tidak ada data insights untuk periode ini.
+        </Alert>
+      </div>
+    );
+  }
+
   const filteredSignals =
     filterLevel === "all"
-      ? mockHealthData.signals
-      : mockHealthData.signals.filter((s) => s.level === filterLevel);
+      ? healthData.signals
+      : healthData.signals.filter((s) => s.level === filterLevel);
 
-  const criticalCount = mockHealthData.signals.filter(
+  const criticalCount = healthData.signals.filter(
     (s) => s.level === "critical",
   ).length;
-  const attentionCount = mockHealthData.signals.filter(
+  const attentionCount = healthData.signals.filter(
     (s) => s.level === "attention",
   ).length;
-  const normalCount = mockHealthData.signals.filter(
+  const normalCount = healthData.signals.filter(
     (s) => s.level === "normal",
   ).length;
 
@@ -113,7 +90,7 @@ export default function InsightsPage() {
               Ringkasan Status
             </h3>
             <p className="text-xs text-gray-600 mt-0.5">
-              Periode: {mockHealthData.period.from} - {mockHealthData.period.to}
+              Periode: {healthData.period.from} - {healthData.period.to}
             </p>
           </div>
         </div>
@@ -168,7 +145,7 @@ export default function InsightsPage() {
             size="sm"
             onClick={() => setFilterLevel("all")}
           >
-            Semua ({mockHealthData.signals.length})
+            Semua ({healthData.signals.length})
           </Button>
           <Button
             variant={filterLevel === "critical" ? "danger" : "ghost"}
